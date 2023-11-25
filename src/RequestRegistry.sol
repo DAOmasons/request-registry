@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-contract Counter {
+import {Hats} from "hats-protocol/Hats.sol";
+import {IHats} from "hats-protocol/Interfaces/IHats.sol";
+
+contract RequestRegistry {
     // STATUS
 
     enum Status {
@@ -24,30 +27,45 @@ contract Counter {
     // STRUCTS
 
     struct Request {
-        address shipAddress; // who
-        uint256 amount; // what
-        Status requestStatus; // where
-        uint256 timestamp; // when
-        Metadata metadata; // why
+        uint256 shipHatId;
+        uint256 operatorId;
+        uint256 amountRequested;
+        Status requestStatus;
+        uint256 timestamp;
+        Metadata metadata;
+    }
+
+    struct Ship {
+        uint256 amountDistributed;
+        uint256 totalDistrubtion;
+        uint256 operatorHatId;
     }
 
     // State
 
+    IHats hats;
+    uint256 private nonce;
+    // maps nonce to request
     mapping(uint256 => Request) public requests;
+    // maps grant ship branch ID to ship
+    mapping(uint256 => Ship) public ships;
 
     // Events
 
     // Errors
 
-    error RequestAlreadyExists();
+    error NotAuthorizedToRequest();
+    error ShipDoesntExist();
+    error SpendingCapExceeded();
 
     event RequestCreated(
         uint256 indexed requestId,
-        address indexed shipHatId,
-        uint256 amount,
+        uint256 indexed shipHatId,
+        uint256 operatorId,
+        uint256 amountRequested,
         uint256 timestamp,
         uint32 metaType,
-        string data
+        string metadata
     );
 
     event RequestStatusChanged(
@@ -58,33 +76,48 @@ contract Counter {
     // MODIFIERS
     // FUNCTIONS
 
+    constructor(address _hatsAddress) {
+        hats = IHats(_hatsAddress);
+    }
+
     function createRequest(
-        uint256 requestId,
-        address shipAddress,
-        uint256 amount,
-        uint32 metaType,
-        string memory data
+        uint256 _shipHatId,
+        // derive operator Id from ship Id?
+        uint256 _operatorId,
+        uint256 _amountRequested,
+        uint32 _metaType,
+        string memory _metadata
     ) public {
-        if(
-            requests[requestId].timestamp == 0)
-            revert "Request already exists"
+        if (ships[_shipHatId].operatorHatId == 0) revert ShipDoesntExist();
 
+        Ship storage ship = ships[_shipHatId];
 
-        requests[requestId] = Request({
-            shipAddress: shipAddress,
-            amount: amount,
+        if (hats.isWearerOfHat(msg.sender, ship.operatorHatId))
+            revert NotAuthorizedToRequest();
+
+        // check if allocation amount is greater than the ships available allocation
+        if (ship.amountDistributed + _amountRequested > ship.totalDistrubtion)
+            revert SpendingCapExceeded();
+
+        requests[nonce] = Request({
+            shipHatId: _shipHatId,
+            operatorId: _operatorId,
+            amountRequested: _amountRequested,
             requestStatus: Status.Pending,
             timestamp: block.timestamp,
-            metadata: Metadata({metaType: metaType, data: data})
+            metadata: Metadata({metaType: _metaType, data: _metadata})
         });
 
+        nonce++;
+
         emit RequestCreated(
-            requestId,
-            shipAddress,
-            amount,
+            nonce,
+            _shipHatId,
+            _operatorId,
+            _amountRequested,
             block.timestamp,
-            metaType,
-            data
+            _metaType,
+            _metadata
         );
     }
 }
