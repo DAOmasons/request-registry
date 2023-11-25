@@ -78,6 +78,8 @@ contract RequestRegistry {
 
     constructor(address _hatsAddress) {
         hats = IHats(_hatsAddress);
+
+        // create ships and set operator hat
     }
 
     function createRequest(
