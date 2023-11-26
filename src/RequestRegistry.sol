@@ -37,14 +37,20 @@ contract RequestRegistry {
 
     struct Ship {
         uint256 amountDistributed;
-        uint256 totalDistrubtion;
+        uint256 amountPending;
+        uint256 totalDistribution;
         uint256 operatorHatId;
+        Metadata metadata;
     }
 
     // State
 
     IHats hats;
+
+    uint256 facilitatorHatId;
+
     uint256 private nonce;
+
     // maps nonce to request
     mapping(uint256 => Request) public requests;
     // maps grant ship branch ID to ship
@@ -54,7 +60,7 @@ contract RequestRegistry {
 
     // Errors
 
-    error NotAuthorizedToRequest();
+    error NotAuthorized();
     error ShipDoesntExist();
     error SpendingCapExceeded();
 
@@ -68,6 +74,14 @@ contract RequestRegistry {
         string metadata
     );
 
+    event ShipDeployed(
+        uint256 shipId,
+        uint256 operatorHatId,
+        uint256 totalDistribution,
+        uint32 metatype,
+        string metadata
+    );
+
     event RequestStatusChanged(
         uint256 indexed requestId,
         Status indexed requestStatus
@@ -76,10 +90,49 @@ contract RequestRegistry {
     // MODIFIERS
     // FUNCTIONS
 
-    constructor(address _hatsAddress) {
+    constructor(
+        address _hatsAddress,
+        uint256 _facilitatorHatId,
+        bytes[3] memory _shipsData
+    ) {
         hats = IHats(_hatsAddress);
+        facilitatorHatId = _facilitatorHatId;
 
-        // create ships and set operator hat
+        if (!hats.isWearerOfHat(msg.sender, facilitatorHatId))
+            revert NotAuthorized();
+
+        for (uint32 i = 0; i < _shipsData.length; ) {
+            (
+                uint256 _totalDistribution,
+                uint256 _operatorHatId,
+                uint256 _shipHatId,
+                uint32 _metaType,
+                string memory _metadata
+            ) = abi.decode(
+                    _shipsData[i],
+                    (uint256, uint256, uint256, uint32, string)
+                );
+
+            ships[_shipHatId] = Ship({
+                amountDistributed: 0,
+                amountPending: 0,
+                totalDistribution: _totalDistribution,
+                operatorHatId: _operatorHatId,
+                metadata: Metadata({metaType: _metaType, data: _metadata})
+            });
+
+            emit ShipDeployed(
+                _shipHatId,
+                _operatorHatId,
+                _totalDistribution,
+                _metaType,
+                _metadata
+            );
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     function createRequest(
@@ -95,11 +148,13 @@ contract RequestRegistry {
         Ship storage ship = ships[_shipHatId];
 
         if (hats.isWearerOfHat(msg.sender, ship.operatorHatId))
-            revert NotAuthorizedToRequest();
+            revert NotAuthorized();
 
         // check if allocation amount is greater than the ships available allocation
-        if (ship.amountDistributed + _amountRequested > ship.totalDistrubtion)
-            revert SpendingCapExceeded();
+        if (
+            ship.amountDistributed + ship.amountPending + _amountRequested >
+            ship.totalDistribution
+        ) revert SpendingCapExceeded();
 
         requests[nonce] = Request({
             shipHatId: _shipHatId,
@@ -110,7 +165,11 @@ contract RequestRegistry {
             metadata: Metadata({metaType: _metaType, data: _metadata})
         });
 
-        nonce++;
+        ship.amountPending = _amountRequested + ship.amountPending;
+
+        unchecked {
+            ++nonce;
+        }
 
         emit RequestCreated(
             nonce,
