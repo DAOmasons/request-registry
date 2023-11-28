@@ -30,7 +30,7 @@ contract RequestRegistry {
         uint256 shipHatId;
         uint256 operatorId;
         uint256 amountRequested;
-        Status requestStatus;
+        Status status;
         uint256 timestamp;
         Metadata metadata;
     }
@@ -79,13 +79,16 @@ contract RequestRegistry {
         uint256 operatorHatId,
         uint256 totalDistribution,
         uint32 metatype,
-        string metadata
+        string metadata,
+        uint256 timestamp
     );
 
     event RequestStatusChanged(
         uint256 indexed requestId,
-        Status indexed requestStatus
+        Status indexed status
     );
+
+    event GrantShipsDeployed(address hatsTree, uint256 facilitatorHatId);
 
     // MODIFIERS
     // FUNCTIONS
@@ -126,13 +129,15 @@ contract RequestRegistry {
                 _operatorHatId,
                 _totalDistribution,
                 _metaType,
-                _metadata
+                _metadata,
+                block.timestamp
             );
 
             unchecked {
                 ++i;
             }
         }
+        emit GrantShipsDeployed(_hatsAddress, _facilitatorHatId);
     }
 
     function createRequest(
@@ -160,7 +165,7 @@ contract RequestRegistry {
             shipHatId: _shipHatId,
             operatorId: _operatorId,
             amountRequested: _amountRequested,
-            requestStatus: Status.Pending,
+            status: Status.Pending,
             timestamp: block.timestamp,
             metadata: Metadata({metaType: _metaType, data: _metadata})
         });
@@ -180,5 +185,13 @@ contract RequestRegistry {
             _metaType,
             _metadata
         );
+    }
+
+    function changeRequestStatus(uint256 _requestId, Status _status) public {
+        if (!hats.isWearerOfHat(msg.sender, facilitatorHatId))
+            revert NotAuthorized();
+        Request storage request = requests[_requestId];
+        request.status = _status;
+        emit RequestStatusChanged(_requestId, _status);
     }
 }
