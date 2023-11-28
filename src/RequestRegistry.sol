@@ -83,38 +83,29 @@ contract RequestRegistry {
         uint256 timestamp
     );
 
-    event RequestStatusChanged(
-        uint256 indexed requestId,
-        Status indexed status
-    );
+    event RequestStatusChanged(uint256 indexed requestId, Status indexed status);
 
     event GrantShipsDeployed(address hatsTree, uint256 facilitatorHatId);
 
     // MODIFIERS
     // FUNCTIONS
 
-    constructor(
-        address _hatsAddress,
-        uint256 _facilitatorHatId,
-        bytes[3] memory _shipsData
-    ) {
+    constructor(address _hatsAddress, uint256 _facilitatorHatId, bytes[3] memory _shipsData) {
         hats = IHats(_hatsAddress);
         facilitatorHatId = _facilitatorHatId;
 
-        if (!hats.isWearerOfHat(msg.sender, facilitatorHatId))
+        if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
             revert NotAuthorized();
+        }
 
-        for (uint32 i = 0; i < _shipsData.length; ) {
+        for (uint32 i = 0; i < _shipsData.length;) {
             (
                 uint256 _totalDistribution,
                 uint256 _operatorHatId,
                 uint256 _shipHatId,
                 uint32 _metaType,
                 string memory _metadata
-            ) = abi.decode(
-                    _shipsData[i],
-                    (uint256, uint256, uint256, uint32, string)
-                );
+            ) = abi.decode(_shipsData[i], (uint256, uint256, uint256, uint32, string));
 
             ships[_shipHatId] = Ship({
                 amountDistributed: 0,
@@ -124,14 +115,7 @@ contract RequestRegistry {
                 metadata: Metadata({metaType: _metaType, data: _metadata})
             });
 
-            emit ShipDeployed(
-                _shipHatId,
-                _operatorHatId,
-                _totalDistribution,
-                _metaType,
-                _metadata,
-                block.timestamp
-            );
+            emit ShipDeployed(_shipHatId, _operatorHatId, _totalDistribution, _metaType, _metadata, block.timestamp);
 
             unchecked {
                 ++i;
@@ -152,14 +136,14 @@ contract RequestRegistry {
 
         Ship storage ship = ships[_shipHatId];
 
-        if (hats.isWearerOfHat(msg.sender, ship.operatorHatId))
+        if (hats.isWearerOfHat(msg.sender, ship.operatorHatId)) {
             revert NotAuthorized();
+        }
 
         // check if allocation amount is greater than the ships available allocation
-        if (
-            ship.amountDistributed + ship.amountPending + _amountRequested >
-            ship.totalDistribution
-        ) revert SpendingCapExceeded();
+        if (ship.amountDistributed + ship.amountPending + _amountRequested > ship.totalDistribution) {
+            revert SpendingCapExceeded();
+        }
 
         requests[nonce] = Request({
             shipHatId: _shipHatId,
@@ -176,20 +160,13 @@ contract RequestRegistry {
             ++nonce;
         }
 
-        emit RequestCreated(
-            nonce,
-            _shipHatId,
-            _operatorId,
-            _amountRequested,
-            block.timestamp,
-            _metaType,
-            _metadata
-        );
+        emit RequestCreated(nonce, _shipHatId, _operatorId, _amountRequested, block.timestamp, _metaType, _metadata);
     }
 
     function changeRequestStatus(uint256 _requestId, Status _status) public {
-        if (!hats.isWearerOfHat(msg.sender, facilitatorHatId))
+        if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
             revert NotAuthorized();
+        }
         Request storage request = requests[_requestId];
         request.status = _status;
         emit RequestStatusChanged(_requestId, _status);
