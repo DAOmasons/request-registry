@@ -26,7 +26,7 @@ contract RegistryTest is Test {
 
     function setUp() public {
         _setupHats();
-        // _setupShips();
+        _setupGrantShips();
     }
 
     function _setupHats() internal {
@@ -94,6 +94,32 @@ contract RegistryTest is Test {
                 ++i;
             }
         }
+    }
+
+    function _setupGrantShips() internal {
+        bytes[3] memory shipConfigs;
+
+        for (uint8 i = 0; i < 3; ) {
+            shipConfigs[i] = abi.encode(
+                20000e18,
+                operatorHatIds[i],
+                shipHatIds[i],
+                2,
+                string.concat("This is metadata for Ship ", vm.toString(i))
+            );
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        vm.prank(gamefacilitator);
+
+        registry = new RequestRegistry(
+            address(hats),
+            facilitatorHatId,
+            shipConfigs
+        );
     }
 
     function test_Increment() public {
