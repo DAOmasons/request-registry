@@ -11,7 +11,6 @@ contract RegistryTest is Test {
     RequestRegistry public registry;
     Hats hats;
 
-    address internal shipOperator = address(1);
     address internal gamefacilitator = address(2);
     address internal nonWearer = address(3);
     address internal topHatWearer = address(4);
@@ -19,13 +18,15 @@ contract RegistryTest is Test {
     address internal toggle = address(333);
     address internal eligibility = address(555);
 
-    uint256 internal shipOperatorId;
-    uint256 internal shipHatId;
+    address[3] internal shipOperators;
+    uint256[3] internal operatorHatIds;
+    uint256[3] internal shipHatIds;
     uint256 internal topHatId;
     uint256 internal facilitatorHatId;
 
     function setUp() public {
         _setupHats();
+        // _setupShips();
     }
 
     function _setupHats() internal {
@@ -52,36 +53,50 @@ contract RegistryTest is Test {
         vm.prank(topHatWearer);
         hats.mintHat(facilitatorHatId, gamefacilitator);
 
-        vm.prank(topHatWearer);
+        for (uint32 i = 0; i < 3; ) {
+            vm.prank(topHatWearer);
+            shipHatIds[i] = hats.createHat(
+                topHatId,
+                string.concat("Ship Hat ", vm.toString(i + 1)),
+                1,
+                eligibility,
+                toggle,
+                true,
+                ""
+            );
 
-        shipHatId = hats.createHat(
-            topHatId,
-            "Ship Hat 1",
-            1,
-            eligibility,
-            toggle,
-            true,
-            ""
-        );
+            console.log("Ship Operator ID:");
+            console.log(shipHatIds[i]);
 
-        vm.prank(topHatWearer);
+            vm.prank(topHatWearer);
+            operatorHatIds[i] = hats.createHat(
+                topHatId,
+                string.concat("Ship Operator Hat", vm.toString(i + 1)),
+                1,
+                address(555),
+                address(333),
+                true,
+                ""
+            );
 
-        shipOperatorId = hats.createHat(
-            topHatId,
-            "Ship Operator 1",
-            1,
-            address(555),
-            address(333),
-            true,
-            ""
-        );
+            console.log("Operator ID");
+            console.log(operatorHatIds[i]);
 
-        vm.prank(topHatWearer);
-        hats.mintHat(shipOperatorId, shipOperator);
+            shipOperators[i] = address(uint160(10 + i));
+
+            console.log("Operator Address");
+            console.log(shipOperators[i]);
+
+            vm.prank(topHatWearer);
+            hats.mintHat(operatorHatIds[i], shipOperators[i]);
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     function test_Increment() public {
-        console.log(2);
         // counter.increment();
         // assertEq(counter.number(), 1);
     }
