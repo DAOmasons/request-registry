@@ -140,26 +140,27 @@ contract RequestRegistry {
         emit GrantShipsDeployed(_hatsAddress, _facilitatorHatId);
     }
 
-    function createRequest(
-        uint256 _shipHatId,
-        // derive operator Id from ship Id?
-        uint256 _operatorId,
-        uint256 _amountRequested,
-        uint32 _metaType,
-        string memory _metadata
-    ) public {
-        if (ships[_shipHatId].operatorHatId == 0) revert ShipDoesntExist();
+        function createRequest(
+            uint256 _shipHatId,
+            uint256 _operatorId,
+            uint256 _amountRequested,
+            uint32 _metaType,
+            string memory _metadata
+            ) public {
+            if (ships[_shipHatId].operatorHatId == 0) revert ShipDoesntExist();
 
-        Ship storage ship = ships[_shipHatId];
+            Ship storage ship = ships[_shipHatId];
 
-        if (hats.isWearerOfHat(msg.sender, ship.operatorHatId))
-            revert NotAuthorized();
+            if (hats.isWearerOfHat(msg.sender, ship.operatorHatId))
+                revert NotAuthorized();
 
-        // check if allocation amount is greater than the ships available allocation
-        if (
-            ship.amountDistributed + ship.amountPending + _amountRequested >
-            ship.totalDistribution
-        ) revert SpendingCapExceeded();
+            // Check if allocation amount is greater than the ship's available allocation
+            uint256 newAmountPending = ship.amountPending + _amountRequested;
+            if (newAmountPending > ship.totalDistribution - ship.amountDistributed)
+                revert SpendingCapExceeded();
+
+            // Update the state variable only once
+            ship.amountPending = newAmountPending;
 
         requests[nonce] = Request({
             shipHatId: _shipHatId,
