@@ -1,10 +1,5 @@
 {
   "solidity.packageDefaultDependenciesContractsDirectory": "src",
   "solidity.packageDefaultDependenciesDirectory": "lib",
-  "solidity.compileUsingRemoteVersion": "v0.8.15",
-  "solidity.remappings": [
-    "forge-std/=lib/forge-std/src/",
-    "@openzeppelin/=lib/openzeppelin-contracts/",
-    "hats-protocol/=lib/hats-protocol/src/"
-  ]
+  "solidity.compileUsingRemoteVersion": "v0.8.15"
 }

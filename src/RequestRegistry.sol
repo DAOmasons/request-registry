@@ -63,7 +63,7 @@ contract RequestRegistry {
     // Errors
 
     error NotAuthorized();
-    error ShipDoesntExist();
+    error ShipDoesNotExist();
     error SpendingCapExceeded();
 
     event RequestCreated(
@@ -151,7 +151,7 @@ contract RequestRegistry {
     ) public {
         Ship storage ship = ships[_shipHatId];
 
-        if (ship.operatorHatId == 0) revert ShipDoesntExist();
+        if (ship.operatorHatId == 0) revert ShipDoesNotExist();
 
         if (!hats.isWearerOfHat(msg.sender, ship.operatorHatId)) {
             revert NotAuthorized();
@@ -176,10 +176,6 @@ contract RequestRegistry {
 
         ship.amountPending = _amountRequested + ship.amountPending;
 
-        unchecked {
-            ++nonce;
-        }
-
         emit RequestCreated(
             nonce,
             _shipHatId,
@@ -189,6 +185,10 @@ contract RequestRegistry {
             _metaType,
             _metadata
         );
+
+        unchecked {
+            ++nonce;
+        }
     }
 
     function changeRequestStatus(uint256 _requestId, Status _status) public {

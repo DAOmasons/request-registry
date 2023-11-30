@@ -140,20 +140,53 @@ contract RegistryTest is Test {
     }
 
     function testNonFacilitatorCreate() public {
+        bytes[3] memory shipConfigs;
+
+        for (uint8 i = 0; i < 3; ) {
+            shipConfigs[i] = abi.encode(
+                30000e18,
+                _operatorHatIds[i],
+                _shipHatIds[i],
+                2,
+                string.concat("This is metadata for Ship ", vm.toString(i))
+            );
+
+            unchecked {
+                ++i;
+            }
+        }
+
         // test to ensure that only facilitators can create the contract
         vm.expectRevert(RequestRegistry.NotAuthorized.selector);
         vm.prank(_nonWearer);
         registry = new RequestRegistry(
             address(hats),
             _facilitatorHatId,
-            new bytes[](0)
+            shipConfigs
         );
     }
 
     function testCreateRequest() public {
         //test to see if operator can create a request as expected.
         vm.prank(_shipOperators[0]);
-        registry.createRequest(_shipHatIds[0], 10000e18, 2, "");
+        registry.createRequest(_shipHatIds[0], 10000e18, 2, '{"json": true}');
+
+        (
+            uint256 shipHatId,
+            uint256 operatorId,
+            uint256 amountRequested,
+            RequestRegistry.Status status,
+            uint256 timestamp,
+            RequestRegistry.Metadata memory Metadata
+        ) = registry.requests(0);
+
+        assertEq(shipHatId, _shipHatIds[0]);
+        assertEq(operatorId, _operatorHatIds[0]);
+        assertEq(amountRequested, 10000e18);
+        assertEq(uint256(status), uint256(RequestRegistry.Status.Pending));
+        assertEq(timestamp, block.timestamp);
+        assertEq(Metadata.metaType, 2);
+        assertEq(Metadata.data, '{"json": true}');
     }
 
     function testUnauthorizedCreateRequest() public {
@@ -179,5 +212,23 @@ contract RegistryTest is Test {
         vm.expectRevert(RequestRegistry.ShipDoesNotExist.selector);
         vm.prank(_shipOperators[0]);
         registry.createRequest(0, 10000e18, 2, "");
+    }
+
+    function testSpendingCapExceeded() public {
+        // test to ensure that a request cannot be created if the spending cap is exceeded
+        vm.expectRevert(RequestRegistry.SpendingCapExceeded.selector);
+        vm.prank(_shipOperators[0]);
+        registry.createRequest(_shipHatIds[0], 100000e18, 2, "");
+    }
+
+    function testNonFacilitatorChangeRequestStatus() public {
+        // test to ensure that only facilitators can change the status of a request
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_nonWearer);
+        registry.changeRequestStatus(0, RequestRegistry.Status.Approved);
+
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_shipOperators[0]);
+        registry.changeRequestStatus(0, RequestRegistry.Status.Approved);
     }
 }
