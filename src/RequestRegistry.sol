@@ -4,6 +4,8 @@ pragma solidity ^0.8.13;
 import {Hats} from "hats-protocol/Hats.sol";
 import {IHats} from "hats-protocol/Interfaces/IHats.sol";
 
+import "forge-std/console.sol";
+
 contract RequestRegistry {
     // STATUS
 
@@ -83,14 +85,21 @@ contract RequestRegistry {
         uint256 timestamp
     );
 
-    event RequestStatusChanged(uint256 indexed requestId, Status indexed status);
+    event RequestStatusChanged(
+        uint256 indexed requestId,
+        Status indexed status
+    );
 
     event GrantShipsDeployed(address hatsTree, uint256 facilitatorHatId);
 
     // MODIFIERS
     // FUNCTIONS
 
-    constructor(address _hatsAddress, uint256 _facilitatorHatId, bytes[3] memory _shipsData) {
+    constructor(
+        address _hatsAddress,
+        uint256 _facilitatorHatId,
+        bytes[3] memory _shipsData
+    ) {
         hats = IHats(_hatsAddress);
         facilitatorHatId = _facilitatorHatId;
 
@@ -98,14 +107,17 @@ contract RequestRegistry {
             revert NotAuthorized();
         }
 
-        for (uint32 i = 0; i < _shipsData.length;) {
+        for (uint32 i = 0; i < _shipsData.length; ) {
             (
                 uint256 _totalDistribution,
                 uint256 _operatorHatId,
                 uint256 _shipHatId,
                 uint32 _metaType,
                 string memory _metadata
-            ) = abi.decode(_shipsData[i], (uint256, uint256, uint256, uint32, string));
+            ) = abi.decode(
+                    _shipsData[i],
+                    (uint256, uint256, uint256, uint32, string)
+                );
 
             ships[_shipHatId] = Ship({
                 amountDistributed: 0,
@@ -115,7 +127,14 @@ contract RequestRegistry {
                 metadata: Metadata({metaType: _metaType, data: _metadata})
             });
 
-            emit ShipDeployed(_shipHatId, _operatorHatId, _totalDistribution, _metaType, _metadata, block.timestamp);
+            emit ShipDeployed(
+                _shipHatId,
+                _operatorHatId,
+                _totalDistribution,
+                _metaType,
+                _metadata,
+                block.timestamp
+            );
 
             unchecked {
                 ++i;
@@ -126,28 +145,29 @@ contract RequestRegistry {
 
     function createRequest(
         uint256 _shipHatId,
-        // derive operator Id from ship Id?
-        uint256 _operatorId,
         uint256 _amountRequested,
         uint32 _metaType,
         string memory _metadata
     ) public {
-        if (ships[_shipHatId].operatorHatId == 0) revert ShipDoesntExist();
-
         Ship storage ship = ships[_shipHatId];
 
-        if (hats.isWearerOfHat(msg.sender, ship.operatorHatId)) {
+        if (ship.operatorHatId == 0) revert ShipDoesntExist();
+
+        if (!hats.isWearerOfHat(msg.sender, ship.operatorHatId)) {
             revert NotAuthorized();
         }
 
         // check if allocation amount is greater than the ships available allocation
-        if (ship.amountDistributed + ship.amountPending + _amountRequested > ship.totalDistribution) {
+        if (
+            ship.amountDistributed + ship.amountPending + _amountRequested >
+            ship.totalDistribution
+        ) {
             revert SpendingCapExceeded();
         }
 
         requests[nonce] = Request({
             shipHatId: _shipHatId,
-            operatorId: _operatorId,
+            operatorId: ship.operatorHatId,
             amountRequested: _amountRequested,
             status: Status.Pending,
             timestamp: block.timestamp,
@@ -160,7 +180,15 @@ contract RequestRegistry {
             ++nonce;
         }
 
-        emit RequestCreated(nonce, _shipHatId, _operatorId, _amountRequested, block.timestamp, _metaType, _metadata);
+        emit RequestCreated(
+            nonce,
+            _shipHatId,
+            ship.operatorHatId,
+            _amountRequested,
+            block.timestamp,
+            _metaType,
+            _metadata
+        );
     }
 
     function changeRequestStatus(uint256 _requestId, Status _status) public {
@@ -170,5 +198,19 @@ contract RequestRegistry {
         Request storage request = requests[_requestId];
         request.status = _status;
         emit RequestStatusChanged(_requestId, _status);
+    }
+
+    function getShip(uint _shipHatId) public view returns (Ship memory ship) {
+        return ships[_shipHatId];
+    }
+
+    function getFundingAvailable(
+        uint _shipHatId
+    ) public view returns (uint256 fundsRemaining) {
+        Ship memory ship = getShip(_shipHatId);
+
+        return (ship.totalDistribution -
+            ship.amountPending -
+            ship.amountDistributed);
     }
 }
