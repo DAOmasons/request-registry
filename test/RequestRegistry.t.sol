@@ -74,7 +74,7 @@ contract RegistryTest is Test {
             vm.prank(_topHatWearer);
             _operatorHatIds[i] = hats.createHat(
                 _topHatId,
-                string.concat("Ship Operator Hat", vm.toString(i + 1)),
+                string.concat("Ship Operator Hat ", vm.toString(i + 1)),
                 1,
                 address(555),
                 address(333),
@@ -139,7 +139,18 @@ contract RegistryTest is Test {
         );
     }
 
-    function createRequest() public {
+    function testNonFacilitatorCreate() public {
+        // test to ensure that only facilitators can create the contract
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_nonWearer);
+        registry = new RequestRegistry(
+            address(hats),
+            _facilitatorHatId,
+            new bytes[](0)
+        );
+    }
+
+    function testCreateRequest() public {
         //test to see if operator can create a request as expected.
         vm.prank(_shipOperators[0]);
         registry.createRequest(_shipHatIds[0], 10000e18, 2, "");
@@ -163,8 +174,10 @@ contract RegistryTest is Test {
         registry.createRequest(_shipHatIds[0], 10000e18, 2, "");
     }
 
-    function testFuzz_SetNumber(uint256 x) public {
-        // counter.setNumber(x);
-        // assertEq(counter.number(), x);
+    function testShipDoesNotExist() public {
+        // test to ensure that a request cannot be created for a ship that does not exist
+        vm.expectRevert(RequestRegistry.ShipDoesNotExist.selector);
+        vm.prank(_shipOperators[0]);
+        registry.createRequest(0, 10000e18, 2, "");
     }
 }
