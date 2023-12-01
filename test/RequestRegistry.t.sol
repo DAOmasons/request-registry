@@ -31,7 +31,6 @@ contract RegistryTest is Test {
     }
 
     function _setupHats() internal {
-        bool logHats = false;
         hats = new Hats("Test Name", "ipfs://");
 
         _topHatId = hats.mintTopHat(
@@ -66,10 +65,6 @@ contract RegistryTest is Test {
                 true,
                 ""
             );
-            if (logHats) {
-                console.log("Ship Operator ID:");
-                console.log(_shipHatIds[i]);
-            }
 
             vm.prank(_topHatWearer);
             _operatorHatIds[i] = hats.createHat(
@@ -81,17 +76,8 @@ contract RegistryTest is Test {
                 true,
                 ""
             );
-            if (logHats) {
-                console.log("Operator ID");
-                console.log(_operatorHatIds[i]);
-            }
 
             _shipOperators[i] = address(uint160(10 + i));
-
-            if (logHats) {
-                console.log("Operator Address");
-                console.log(_shipOperators[i]);
-            }
 
             vm.prank(_topHatWearer);
             hats.mintHat(_operatorHatIds[i], _shipOperators[i]);
@@ -219,6 +205,32 @@ contract RegistryTest is Test {
         vm.expectRevert(RequestRegistry.SpendingCapExceeded.selector);
         vm.prank(_shipOperators[0]);
         registry.createRequest(_shipHatIds[0], 100000e18, 2, "");
+    }
+
+    function testFacilitatorChangeStatus() public {
+        // test to ensure that a facilitator can change the status of a request
+
+        (, , , RequestRegistry.Status pendingStatus, , ) = registry.requests(0);
+
+        vm.prank(_shipOperators[0]);
+        registry.createRequest(_shipHatIds[0], 10000e18, 2, "");
+
+        assertEq(
+            uint256(pendingStatus),
+            uint256(RequestRegistry.Status.Pending)
+        );
+
+        vm.prank(_gameFacilitator);
+        registry.changeRequestStatus(0, RequestRegistry.Status.Approved);
+
+        (, , , RequestRegistry.Status approvedStatus, , ) = registry.requests(
+            0
+        );
+
+        assertEq(
+            uint256(approvedStatus),
+            uint256(RequestRegistry.Status.Approved)
+        );
     }
 
     function testNonFacilitatorChangeRequestStatus() public {
