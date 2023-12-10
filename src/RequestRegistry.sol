@@ -65,6 +65,7 @@ contract RequestRegistry {
     error NotAuthorized();
     error ShipDoesNotExist();
     error SpendingCapExceeded();
+    error IncorrectRequestStatus();
 
     event RequestCreated(
         uint256 indexed requestId,
@@ -191,13 +192,57 @@ contract RequestRegistry {
         }
     }
 
-    function changeRequestStatus(uint256 _requestId, Status _status) public {
+    function rejectRequest(uint256 _requestId) public {
         if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
             revert NotAuthorized();
         }
+
         Request storage request = requests[_requestId];
-        request.status = _status;
-        emit RequestStatusChanged(_requestId, _status);
+
+        if (request.status != Status.Pending) revert IncorrectRequestStatus();
+
+        request.status = Status.Rejected;
+        Ship storage ship = ships[request.shipHatId];
+        ship.amountPending = ship.amountPending - request.amountRequested;
+
+        // write event
+        emit RequestStatusChanged(_requestId, Status.Rejected);
+    }
+
+    function approveRequest(uint256 _requestId) public {
+        if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
+            revert NotAuthorized();
+        }
+
+        Request storage request = requests[_requestId];
+
+        if (request.status != Status.Pending) revert IncorrectRequestStatus();
+
+        request.status = Status.Approved;
+
+        // write event
+        emit RequestStatusChanged(_requestId, Status.Approved);
+    }
+
+    function distributeRequest(uint256 _requestId) public {
+        if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
+            revert NotAuthorized();
+        }
+
+        Request storage request = requests[_requestId];
+
+        if (request.status != Status.Approved) revert IncorrectRequestStatus();
+
+        request.status = Status.Distributed;
+
+        Ship storage ship = ships[request.shipHatId];
+        ship.amountPending = ship.amountPending - request.amountRequested;
+        ship.amountDistributed =
+            ship.amountDistributed +
+            request.amountRequested;
+
+        // write event
+        emit RequestStatusChanged(_requestId, Status.Distributed);
     }
 
     function getShip(uint _shipHatId) public view returns (Ship memory ship) {
