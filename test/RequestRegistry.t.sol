@@ -207,13 +207,12 @@ contract RegistryTest is Test {
         registry.createRequest(_shipHatIds[0], 100000e18, 2, "");
     }
 
-    function testFacilitatorChangeStatus() public {
-        // test to ensure that a facilitator can change the status of a request
-
-        (, , , RequestRegistry.Status pendingStatus, , ) = registry.requests(0);
-
+    function testApproveRequest() public {
+        // test to ensure that a facilitator can approve a request
         vm.prank(_shipOperators[0]);
         registry.createRequest(_shipHatIds[0], 10000e18, 2, "");
+
+        (, , , RequestRegistry.Status pendingStatus, , ) = registry.requests(0);
 
         assertEq(
             uint256(pendingStatus),
@@ -221,7 +220,7 @@ contract RegistryTest is Test {
         );
 
         vm.prank(_gameFacilitator);
-        registry.changeRequestStatus(0, RequestRegistry.Status.Approved);
+        registry.approveRequest(0);
 
         (, , , RequestRegistry.Status approvedStatus, , ) = registry.requests(
             0
@@ -233,14 +232,51 @@ contract RegistryTest is Test {
         );
     }
 
-    function testNonFacilitatorChangeRequestStatus() public {
-        // test to ensure that only facilitators can change the status of a request
+    function testNonFacilitatorApproveRequest() public {
+        // test to ensure that only facilitators can approve a request
         vm.expectRevert(RequestRegistry.NotAuthorized.selector);
         vm.prank(_nonWearer);
-        registry.changeRequestStatus(0, RequestRegistry.Status.Approved);
+        registry.approveRequest(0);
 
         vm.expectRevert(RequestRegistry.NotAuthorized.selector);
         vm.prank(_shipOperators[0]);
-        registry.changeRequestStatus(0, RequestRegistry.Status.Approved);
+        registry.approveRequest(0);
     }
+
+    // function testFacilitatorChangeStatus() public {
+    //     // test to ensure that a facilitator can change the status of a request
+
+    //     (, , , RequestRegistry.Status pendingStatus, , ) = registry.requests(0);
+
+    //     vm.prank(_shipOperators[0]);
+    //     registry.createRequest(_shipHatIds[0], 10000e18, 2, "");
+
+    //     assertEq(
+    //         uint256(pendingStatus),
+    //         uint256(RequestRegistry.Status.Pending)
+    //     );
+
+    //     vm.prank(_gameFacilitator);
+    //     registry.changeRequestStatus(0, RequestRegistry.Status.Approved);
+
+    //     (, , , RequestRegistry.Status approvedStatus, , ) = registry.requests(
+    //         0
+    //     );
+
+    //     assertEq(
+    //         uint256(approvedStatus),
+    //         uint256(RequestRegistry.Status.Approved)
+    //     );
+    // }
+
+    // function testNonFacilitatorChangeRequestStatus() public {
+    //     // test to ensure that only facilitators can change the status of a request
+    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+    //     vm.prank(_nonWearer);
+    //     registry.changeRequestStatus(0, RequestRegistry.Status.Approved);
+
+    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+    //     vm.prank(_shipOperators[0]);
+    //     registry.changeRequestStatus(0, RequestRegistry.Status.Approved);
+    // }
 }

@@ -67,6 +67,15 @@ contract RequestRegistry {
     error SpendingCapExceeded();
     error IncorrectRequestStatus();
 
+    modifier onlyFacilitator() {
+        if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
+            revert NotAuthorized();
+        }
+        _;
+    }
+
+    // Events
+
     event RequestCreated(
         uint256 indexed requestId,
         uint256 indexed shipHatId,
@@ -192,11 +201,7 @@ contract RequestRegistry {
         }
     }
 
-    function rejectRequest(uint256 _requestId) public {
-        if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
-            revert NotAuthorized();
-        }
-
+    function rejectRequest(uint256 _requestId) public onlyFacilitator {
         Request storage request = requests[_requestId];
 
         if (request.status != Status.Pending) revert IncorrectRequestStatus();
@@ -209,10 +214,10 @@ contract RequestRegistry {
         emit RequestStatusChanged(_requestId, Status.Rejected);
     }
 
-    function approveRequest(uint256 _requestId) public {
-        if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
-            revert NotAuthorized();
-        }
+    function approveRequest(uint256 _requestId) public onlyFacilitator {
+        // if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
+        //     revert NotAuthorized();
+        // }
 
         Request storage request = requests[_requestId];
 
@@ -224,10 +229,10 @@ contract RequestRegistry {
         emit RequestStatusChanged(_requestId, Status.Approved);
     }
 
-    function distributeRequest(uint256 _requestId) public {
-        if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
-            revert NotAuthorized();
-        }
+    function distributeRequest(uint256 _requestId) public onlyFacilitator {
+        // if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
+        //     revert NotAuthorized();
+        // }
 
         Request storage request = requests[_requestId];
 
