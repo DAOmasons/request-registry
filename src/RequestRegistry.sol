@@ -205,7 +205,10 @@ contract RequestRegistry {
     function rejectRequest(uint256 _requestId) public onlyFacilitator {
         Request storage request = requests[_requestId];
 
-        if (request.status != Status.Pending) revert IncorrectRequestStatus();
+        if (
+            request.status != Status.Pending &&
+            request.status != Status.Approved
+        ) revert IncorrectRequestStatus();
 
         request.status = Status.Rejected;
         Ship storage ship = ships[request.shipHatId];

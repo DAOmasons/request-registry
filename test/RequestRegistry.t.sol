@@ -271,6 +271,30 @@ contract RegistryTest is Test {
             uint256(rejectedStatus),
             uint256(RequestRegistry.Status.Rejected)
         );
+
+        // TEST WITH APPROVED REQUEST
+
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(1);
+
+        vm.prank(_gameFacilitator);
+        registry.rejectRequest(1);
+
+        (, uint256 amountPendingAfterRejection2, , , ) = registry.ships(shipId);
+
+        // check that the amount pending has been removed
+        assertEq(amountPendingAfterRejection2, 0);
+
+        (, , , RequestRegistry.Status rejectedStatus2, , ) = registry.requests(
+            0
+        );
+
+        assertEq(
+            uint256(rejectedStatus2),
+            uint256(RequestRegistry.Status.Rejected)
+        );
     }
 
     function testDistributeRequest() public {
@@ -423,19 +447,22 @@ contract RegistryTest is Test {
 
         _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
 
-        // test to ensure that only ship operators can cancel a request
+        // non-weaer cannot cancel request
         vm.expectRevert(RequestRegistry.NotAuthorized.selector);
         vm.prank(_nonWearer);
         registry.cancelRequest(0);
 
+        // facilitator cannot cancel request
         vm.expectRevert(RequestRegistry.NotAuthorized.selector);
         vm.prank(_gameFacilitator);
         registry.cancelRequest(0);
 
+        // operator cannot cancel request for a different ship
         vm.expectRevert(RequestRegistry.NotAuthorized.selector);
         vm.prank(_shipOperators[1]);
         registry.cancelRequest(0);
 
+        // operator can cancel request
         vm.prank(_shipOperators[0]);
         registry.cancelRequest(0);
 
