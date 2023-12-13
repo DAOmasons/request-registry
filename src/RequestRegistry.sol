@@ -65,6 +65,7 @@ contract RequestRegistry {
 
     error NotAuthorized();
     error ShipDoesNotExist();
+    error RequestDoesNotExist();
     error SpendingCapExceeded();
     error IncorrectRequestStatus();
 
@@ -204,6 +205,7 @@ contract RequestRegistry {
 
     function rejectRequest(uint256 _requestId) public onlyFacilitator {
         Request storage request = requests[_requestId];
+        if (request.operatorId == 0) revert RequestDoesNotExist();
 
         if (
             request.status != Status.Pending &&
@@ -220,7 +222,7 @@ contract RequestRegistry {
 
     function approveRequest(uint256 _requestId) public onlyFacilitator {
         Request storage request = requests[_requestId];
-
+        if (request.operatorId == 0) revert RequestDoesNotExist();
         if (request.status != Status.Pending) revert IncorrectRequestStatus();
 
         request.status = Status.Approved;
@@ -232,6 +234,7 @@ contract RequestRegistry {
     function distributeRequest(uint256 _requestId) public onlyFacilitator {
         Request storage request = requests[_requestId];
 
+        if (request.operatorId == 0) revert RequestDoesNotExist();
         if (request.status != Status.Approved) revert IncorrectRequestStatus();
 
         request.status = Status.Distributed;
@@ -248,6 +251,7 @@ contract RequestRegistry {
 
     function cancelRequest(uint256 _requestId) public {
         Request storage request = requests[_requestId];
+        if (request.operatorId == 0) revert RequestDoesNotExist();
 
         if (
             request.status != Status.Pending &&

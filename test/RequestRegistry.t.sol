@@ -475,4 +475,124 @@ contract RegistryTest is Test {
             uint256(RequestRegistry.Status.Cancelled)
         );
     }
+
+    function testRequestDoesNotExist() public {
+        // Approve
+        vm.expectRevert(RequestRegistry.RequestDoesNotExist.selector);
+        vm.prank(_gameFacilitator);
+
+        registry.approveRequest(0);
+
+        // Reject
+        vm.expectRevert(RequestRegistry.RequestDoesNotExist.selector);
+        vm.prank(_gameFacilitator);
+
+        registry.rejectRequest(0);
+
+        // Distribute
+        vm.expectRevert(RequestRegistry.RequestDoesNotExist.selector);
+        vm.prank(_gameFacilitator);
+        registry.distributeRequest(0);
+
+        // Cancel
+        vm.expectRevert(RequestRegistry.RequestDoesNotExist.selector);
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
+    }
+
+    function testRejectIncorrectStatus() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
+
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+
+        vm.prank(_gameFacilitator);
+        registry.rejectRequest(0);
+
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.rejectRequest(0);
+
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
+
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.distributeRequest(0);
+
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
+    }
+
+    function testApproveIncorrectStatus() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
+
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
+
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
+
+        // Approved requests can be rejected, distributed, or cancelled
+    }
+
+    function testDistributeIncorrectStatus() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
+
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
+
+        vm.prank(_gameFacilitator);
+        registry.distributeRequest(0);
+
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.distributeRequest(0);
+
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
+
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.rejectRequest(0);
+
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
+    }
+
+    function testCancelledIncorrectStatus() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
+
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
+
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
+
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.rejectRequest(0);
+
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.distributeRequest(0);
+    }
 }
