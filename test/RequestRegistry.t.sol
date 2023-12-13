@@ -416,4 +416,36 @@ contract RegistryTest is Test {
         vm.prank(_shipOperators[0]);
         registry.distributeRequest(0);
     }
+
+    function testNonShipOperatorCancelRequest() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
+
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+
+        // test to ensure that only ship operators can cancel a request
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_nonWearer);
+        registry.cancelRequest(0);
+
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_gameFacilitator);
+        registry.cancelRequest(0);
+
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_shipOperators[1]);
+        registry.cancelRequest(0);
+
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
+
+        (, , , RequestRegistry.Status cancelledStatus, , ) = registry.requests(
+            0
+        );
+
+        assertEq(
+            uint256(cancelledStatus),
+            uint256(RequestRegistry.Status.Cancelled)
+        );
+    }
 }
