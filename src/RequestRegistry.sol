@@ -243,7 +243,21 @@ contract RequestRegistry {
         emit RequestStatusChanged(_requestId, Status.Distributed);
     }
 
-    function cancelRequest() public {}
+    function cancelRequest(uint256 _requestId) public {
+        Request storage request = requests[_requestId];
+
+        if (
+            request.status != Status.Pending ||
+            request.status != Status.Approved
+        ) revert IncorrectRequestStatus();
+
+        if (!hats.isWearerOfHat(msg.sender, request.operatorId))
+            revert NotAuthorized();
+
+        request.status = Status.Cancelled;
+        // write event
+        emit RequestStatusChanged(_requestId, Status.Cancelled);
+    }
 
     function getShip(uint _shipHatId) public view returns (Ship memory ship) {
         return ships[_shipHatId];

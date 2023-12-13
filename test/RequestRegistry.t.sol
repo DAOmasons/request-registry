@@ -359,4 +359,15 @@ contract RegistryTest is Test {
         vm.prank(_shipOperators[0]);
         registry.rejectRequest(0);
     }
+
+    function testNonFacilitatorDistributeRequest() public {
+        // test to ensure that only facilitators can distribute a request
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_nonWearer);
+        registry.distributeRequest(0);
+
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_shipOperators[0]);
+        registry.distributeRequest(0);
+    }
 }
