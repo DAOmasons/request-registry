@@ -207,17 +207,90 @@ contract RegistryTest is Test {
         registry.createRequest(_shipHatIds[0], 100000e18, 2, "");
     }
 
-    function testApproveRequest() public {
-        // test to ensure that a facilitator can approve a request
-        vm.prank(_shipOperators[0]);
-        registry.createRequest(_shipHatIds[0], 10000e18, 2, "");
+    function _createDummyRequest(
+        address _requester,
+        uint256 _tokenAmtRequested,
+        uint256 shipId
+    ) internal {
+        vm.prank(_requester);
+        registry.createRequest(shipId, _tokenAmtRequested, 2, "");
 
-        (, , , RequestRegistry.Status pendingStatus, , ) = registry.requests(0);
+        (
+            ,
+            ,
+            uint256 amountRequested,
+            RequestRegistry.Status pendingStatus,
+            ,
 
+        ) = registry.requests(0);
+
+        (, uint256 amountPending, , , ) = registry.ships(shipId);
+
+        // check that the status of the request is pending
         assertEq(
             uint256(pendingStatus),
             uint256(RequestRegistry.Status.Pending)
         );
+
+        // Check that amounts recorded in Ship and Request both reflect the _tokenAmtRequested requested
+
+        assertEq(amountPending, amountRequested);
+        assertEq(amountRequested, _tokenAmtRequested);
+        assertEq(amountPending, _tokenAmtRequested);
+    }
+
+    function testApproveRequest() public {
+        // test to ensure that a facilitator can approve a request
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
+
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
+
+        (, , , RequestRegistry.Status approvedStatus, , ) = registry.requests(
+            0
+        );
+        // Check that the status of the request is approved
+        assertEq(
+            uint256(approvedStatus),
+            uint256(RequestRegistry.Status.Approved)
+        );
+    }
+
+    function testRejectRequest() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
+
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+        (, uint256 amountPending, , , ) = registry.ships(shipId);
+
+        assertEq(amountPending, TEN_THOUSAND_TOKENS);
+
+        vm.prank(_gameFacilitator);
+        registry.rejectRequest(0);
+
+        (, uint256 amountPendingAfterRejection, , , ) = registry.ships(shipId);
+
+        // check that the amount pending has been removed
+        assertEq(amountPendingAfterRejection, 0);
+
+        (, , , RequestRegistry.Status rejectedStatus, , ) = registry.requests(
+            0
+        );
+
+        assertEq(
+            uint256(rejectedStatus),
+            uint256(RequestRegistry.Status.Rejected)
+        );
+    }
+
+    function testDistributeRequest() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
+
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
 
         vm.prank(_gameFacilitator);
         registry.approveRequest(0);
@@ -230,10 +303,43 @@ contract RegistryTest is Test {
             uint256(approvedStatus),
             uint256(RequestRegistry.Status.Approved)
         );
+
+        (
+            uint256 amountDistribtutedBeforeDistro,
+            uint256 amountPendingBeforeDistro,
+            ,
+            ,
+
+        ) = registry.ships(shipId);
+
+        assertEq(amountDistribtutedBeforeDistro, 0);
+        assertEq(amountPendingBeforeDistro, TEN_THOUSAND_TOKENS);
+
+        vm.prank(_gameFacilitator);
+        registry.distributeRequest(0);
+
+        (
+            uint256 amountDistribtutedAfterDistro,
+            uint256 amountPendingAfterDistro,
+            ,
+            ,
+
+        ) = registry.ships(shipId);
+
+        assertEq(amountDistribtutedAfterDistro, TEN_THOUSAND_TOKENS);
+        assertEq(amountPendingAfterDistro, 0);
+
+        (, , , RequestRegistry.Status distributedStatus, , ) = registry
+            .requests(0);
+
+        assertEq(
+            uint256(distributedStatus),
+            uint256(RequestRegistry.Status.Distributed)
+        );
     }
 
     function testNonFacilitatorApproveRequest() public {
-        // test to ensure that only facilitators can approve a request
+        // test to ensure non-hatwearer cannot approve a request
         vm.expectRevert(RequestRegistry.NotAuthorized.selector);
         vm.prank(_nonWearer);
         registry.approveRequest(0);
@@ -243,40 +349,14 @@ contract RegistryTest is Test {
         registry.approveRequest(0);
     }
 
-    // function testFacilitatorChangeStatus() public {
-    //     // test to ensure that a facilitator can change the status of a request
+    function testNonFacilitatorRejectRequest() public {
+        // test to ensure that only facilitators can reject a request
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_nonWearer);
+        registry.rejectRequest(0);
 
-    //     (, , , RequestRegistry.Status pendingStatus, , ) = registry.requests(0);
-
-    //     vm.prank(_shipOperators[0]);
-    //     registry.createRequest(_shipHatIds[0], 10000e18, 2, "");
-
-    //     assertEq(
-    //         uint256(pendingStatus),
-    //         uint256(RequestRegistry.Status.Pending)
-    //     );
-
-    //     vm.prank(_gameFacilitator);
-    //     registry.changeRequestStatus(0, RequestRegistry.Status.Approved);
-
-    //     (, , , RequestRegistry.Status approvedStatus, , ) = registry.requests(
-    //         0
-    //     );
-
-    //     assertEq(
-    //         uint256(approvedStatus),
-    //         uint256(RequestRegistry.Status.Approved)
-    //     );
-    // }
-
-    // function testNonFacilitatorChangeRequestStatus() public {
-    //     // test to ensure that only facilitators can change the status of a request
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_nonWearer);
-    //     registry.changeRequestStatus(0, RequestRegistry.Status.Approved);
-
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_shipOperators[0]);
-    //     registry.changeRequestStatus(0, RequestRegistry.Status.Approved);
-    // }
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_shipOperators[0]);
+        registry.rejectRequest(0);
+    }
 }

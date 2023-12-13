@@ -13,7 +13,8 @@ contract RequestRegistry {
         Pending,
         Rejected,
         Approved,
-        Distributed
+        Distributed,
+        Cancelled
     }
 
     // Metatype
@@ -215,10 +216,6 @@ contract RequestRegistry {
     }
 
     function approveRequest(uint256 _requestId) public onlyFacilitator {
-        // if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
-        //     revert NotAuthorized();
-        // }
-
         Request storage request = requests[_requestId];
 
         if (request.status != Status.Pending) revert IncorrectRequestStatus();
@@ -230,10 +227,6 @@ contract RequestRegistry {
     }
 
     function distributeRequest(uint256 _requestId) public onlyFacilitator {
-        // if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
-        //     revert NotAuthorized();
-        // }
-
         Request storage request = requests[_requestId];
 
         if (request.status != Status.Approved) revert IncorrectRequestStatus();
@@ -249,6 +242,8 @@ contract RequestRegistry {
         // write event
         emit RequestStatusChanged(_requestId, Status.Distributed);
     }
+
+    function cancelRequest() public {}
 
     function getShip(uint _shipHatId) public view returns (Ship memory ship) {
         return ships[_shipHatId];
