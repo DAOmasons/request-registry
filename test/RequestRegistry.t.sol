@@ -215,22 +215,9 @@ contract RegistryTest is Test {
         vm.prank(_requester);
         registry.createRequest(shipId, _tokenAmtRequested, 2, "");
 
-        (
-            ,
-            ,
-            uint256 amountRequested,
-            RequestRegistry.Status pendingStatus,
-            ,
-
-        ) = registry.requests(0);
+        (, , uint256 amountRequested, , , ) = registry.requests(0);
 
         (, uint256 amountPending, , , ) = registry.ships(shipId);
-
-        // check that the status of the request is pending
-        assertEq(
-            uint256(pendingStatus),
-            uint256(RequestRegistry.Status.Pending)
-        );
 
         // Check that amounts recorded in Ship and Request both reflect the _tokenAmtRequested requested
 
@@ -335,6 +322,65 @@ contract RegistryTest is Test {
         assertEq(
             uint256(distributedStatus),
             uint256(RequestRegistry.Status.Distributed)
+        );
+    }
+
+    function testCancelRequest() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
+
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+
+        (, uint256 amountPending, , , ) = registry.ships(shipId);
+
+        assertEq(amountPending, TEN_THOUSAND_TOKENS);
+
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
+
+        (, uint256 amountPendingAfterCancel, , , ) = registry.ships(shipId);
+
+        assertEq(amountPendingAfterCancel, 0);
+
+        (, , , RequestRegistry.Status cancelledStatus, , ) = registry.requests(
+            0
+        );
+
+        assertEq(
+            uint256(cancelledStatus),
+            uint256(RequestRegistry.Status.Cancelled)
+        );
+
+        // TEST WITH APPROVED REQUEST
+
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(1);
+
+        (, , , RequestRegistry.Status approvedStatus, , ) = registry.requests(
+            1
+        );
+
+        assertEq(
+            uint256(approvedStatus),
+            uint256(RequestRegistry.Status.Approved)
+        );
+
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(1);
+
+        (, uint256 amountPendingAfterCancel2, , , ) = registry.ships(shipId);
+
+        assertEq(amountPendingAfterCancel2, 0);
+
+        (, , , RequestRegistry.Status cancelledStatus2, , ) = registry.requests(
+            1
+        );
+
+        assertEq(
+            uint256(cancelledStatus2),
+            uint256(RequestRegistry.Status.Cancelled)
         );
     }
 

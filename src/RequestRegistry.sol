@@ -247,7 +247,7 @@ contract RequestRegistry {
         Request storage request = requests[_requestId];
 
         if (
-            request.status != Status.Pending ||
+            request.status != Status.Pending &&
             request.status != Status.Approved
         ) revert IncorrectRequestStatus();
 
@@ -255,21 +255,23 @@ contract RequestRegistry {
             revert NotAuthorized();
 
         request.status = Status.Cancelled;
+        Ship storage ship = ships[request.shipHatId];
+        ship.amountPending = ship.amountPending - request.amountRequested;
         // write event
         emit RequestStatusChanged(_requestId, Status.Cancelled);
     }
 
-    function getShip(uint _shipHatId) public view returns (Ship memory ship) {
-        return ships[_shipHatId];
-    }
+    // function getShip(uint _shipHatId) public view returns (Ship memory ship) {
+    //     return ships[_shipHatId];
+    // }
 
-    function getFundingAvailable(
-        uint _shipHatId
-    ) public view returns (uint256 fundsRemaining) {
-        Ship memory ship = getShip(_shipHatId);
+    // function getFundingAvailable(
+    //     uint _shipHatId
+    // ) public view returns (uint256 fundsRemaining) {
+    //     Ship memory ship = getShip(_shipHatId);
 
-        return (ship.totalDistribution -
-            ship.amountPending -
-            ship.amountDistributed);
-    }
+    //     return (ship.totalDistribution -
+    //         ship.amountPending -
+    //         ship.amountDistributed);
+    // }
 }
