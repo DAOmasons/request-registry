@@ -20,14 +20,16 @@ contract RegistryTest is Test {
     address internal _eligibility = address(555);
 
     address[3] internal _shipOperators;
+    address[3] internal _shipAddresses;
     uint256[3] internal _operatorHatIds;
     uint256[3] internal _shipHatIds;
+    bytes[3] internal _shipTestData;
 
     uint256[3] internal _granteeHatId;
     address[3] internal _granteeAddresses;
     address[3] internal _granteeOperators;
     uint256[3] internal _granteeOperatorId;
-    bytes[3] internal _granteePackedTestData;
+    bytes[3] internal _granteeTestData;
 
     uint256 internal _topHatId;
     uint256 internal _facilitatorHatId;
@@ -74,14 +76,16 @@ contract RegistryTest is Test {
                 ""
             );
 
-            // See below comment. This is not a good way to do this.
+            _shipAddresses[i] = address(uint160(50 + i));
+
             vm.prank(_topHatWearer);
+            hats.mintHat(_shipHatIds[i], _shipAddresses[i]);
+
+            vm.prank(_shipAddresses[i]);
             _operatorHatIds[i] = hats.createHat(
-                // WTF: Check if this still works if I make sure that
-                // the admin is the shipID
-                _topHatId,
+                _shipHatIds[i],
                 string.concat("Ship Operator Hat ", vm.toString(i + 1)),
-                1, // should be higher
+                3,
                 address(555),
                 address(333),
                 true,
@@ -100,10 +104,8 @@ contract RegistryTest is Test {
     }
 
     function _setupGrantShips() internal {
-        bytes[3] memory shipConfigs;
-
         for (uint8 i = 0; i < 3; ) {
-            shipConfigs[i] = abi.encode(
+            _shipTestData[i] = abi.encode(
                 30000e18,
                 _operatorHatIds[i],
                 _shipHatIds[i],
@@ -122,7 +124,7 @@ contract RegistryTest is Test {
         registry = new RequestRegistry(
             address(hats),
             _facilitatorHatId,
-            shipConfigs
+            _shipTestData
         );
 
         // deploy as expected
@@ -132,14 +134,13 @@ contract RegistryTest is Test {
         registry = new RequestRegistry(
             address(hats),
             _facilitatorHatId,
-            shipConfigs
+            _shipTestData
         );
     }
 
     function _setupSampleGrantees() internal {
         for (uint8 i = 0; i < 3; ) {
             vm.prank(_topHatWearer);
-
             _granteeHatId[i] = hats.createHat(
                 _topHatId,
                 string.concat("Sample Project Hat ", vm.toString(i + 1)),
@@ -149,22 +150,10 @@ contract RegistryTest is Test {
                 true,
                 ""
             );
-
             _granteeOperators[i] = address(uint160(20 + i));
             _granteeAddresses[i] = address(uint160(30 + i));
 
             vm.prank(_topHatWearer);
-
-            _granteeHatId[i] = hats.createHat(
-                _topHatId,
-                string.concat("Sample Project Hat ", vm.toString(i + 1)),
-                1,
-                address(555),
-                address(333),
-                true,
-                ""
-            );
-
             hats.mintHat(_granteeHatId[i], _granteeAddresses[i]);
 
             vm.prank(_granteeAddresses[i]);
@@ -182,7 +171,7 @@ contract RegistryTest is Test {
                 ""
             );
 
-            _granteePackedTestData[i] = abi.encode(
+            _granteeTestData[i] = abi.encode(
                 _granteeAddresses[i],
                 _granteeOperatorId[i],
                 3,
@@ -191,86 +180,137 @@ contract RegistryTest is Test {
                     vm.toString(i + 1)
                 )
             );
+
+            unchecked {
+                ++i;
+            }
         }
     }
 
-    // function testNonFacilitatorCreate() public {
-    //     bytes[3] memory shipConfigs;
+    function testCreateRequest() public {
+        //test to see if operator can create a request as expected.
+        vm.prank(_shipOperators[0]);
 
-    //     for (uint8 i = 0; i < 3; ) {
-    //         shipConfigs[i] = abi.encode(
-    //             30000e18,
-    //             _operatorHatIds[i],
-    //             _shipHatIds[i],
-    //             2,
-    //             string.concat("This is metadata for Ship ", vm.toString(i))
-    //         );
+        registry.createRequest(
+            _shipHatIds[0],
+            10000e18,
+            2,
+            '{"json": true}',
+            _granteeHatId[0],
+            _granteeTestData[0]
+        );
 
-    //         unchecked {
-    //             ++i;
-    //         }
-    //     }
+        (
+            uint256 shipHatId,
+            uint256 operatorId,
+            uint256 amountRequested,
+            RequestRegistry.Status status,
+            uint256 timestamp,
+            RequestRegistry.Metadata memory Metadata,
+            uint8 shipReviewScore,
+            uint256 granteeHatId
+        ) = registry.requests(0);
 
-    //     // test to ensure that only facilitators can create the contract
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_nonWearer);
-    //     registry = new RequestRegistry(
-    //         address(hats),
-    //         _facilitatorHatId,
-    //         shipConfigs
-    //     );
-    // }
+        assertEq(shipHatId, _shipHatIds[0]);
+        assertEq(operatorId, _operatorHatIds[0]);
+        assertEq(amountRequested, 10000e18);
+        assertEq(uint256(status), uint256(RequestRegistry.Status.Pending));
+        assertEq(timestamp, block.timestamp);
+        assertEq(Metadata.metaType, 2);
+        assertEq(Metadata.data, '{"json": true}');
+        assertEq(shipReviewScore, 0);
+        assertEq(granteeHatId, _granteeHatId[0]);
+    }
 
-    // function testCreateRequest() public {
-    //     //test to see if operator can create a request as expected.
-    //     vm.prank(_shipOperators[0]);
-    //     registry.createRequest(_shipHatIds[0], 10000e18, 2, '{"json": true}');
+    function _createDummyRequest(
+        address _requester,
+        uint256 _tokenAmtRequested,
+        uint256 shipId
+    ) internal {
+        vm.prank(_requester);
+        registry.createRequest(
+            shipId,
+            _tokenAmtRequested,
+            2,
+            '{"json": true}',
+            _granteeHatId[0],
+            _granteeTestData[0]
+        );
 
-    //     (
-    //         uint256 shipHatId,
-    //         uint256 operatorId,
-    //         uint256 amountRequested,
-    //         RequestRegistry.Status status,
-    //         uint256 timestamp,
-    //         RequestRegistry.Metadata memory Metadata
-    //     ) = registry.requests(0);
+        (, , uint256 amountRequested, , , , , ) = registry.requests(0);
 
-    //     assertEq(shipHatId, _shipHatIds[0]);
-    //     assertEq(operatorId, _operatorHatIds[0]);
-    //     assertEq(amountRequested, 10000e18);
-    //     assertEq(uint256(status), uint256(RequestRegistry.Status.Pending));
-    //     assertEq(timestamp, block.timestamp);
-    //     assertEq(Metadata.metaType, 2);
-    //     assertEq(Metadata.data, '{"json": true}');
-    // }
+        (, uint256 amountPending, , , ) = registry.ships(shipId);
 
-    // function testUnauthorizedCreateRequest() public {
-    //     // test that request reverts as expected if caller does not hold an operator hat
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_nonWearer);
-    //     registry.createRequest(_shipHatIds[0], 10000e18, 2, "");
+        // Check that amounts recorded in Ship and Request both reflect the _tokenAmtRequested requested
 
-    //     // test that request reverts if an operator is wearing an operator hat for a
-    //     // different ship
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_shipOperators[1]);
-    //     registry.createRequest(_shipHatIds[0], 10000e18, 2, "");
+        assertEq(amountPending, amountRequested);
+        assertEq(amountRequested, _tokenAmtRequested);
+        assertEq(amountPending, _tokenAmtRequested);
+    }
 
-    //     // test to ensure that facilitators cannot create a request
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_gameFacilitator);
-    //     registry.createRequest(_shipHatIds[0], 10000e18, 2, "");
-    // }
+    function testUnauthorizedCreateRequest() public {
+        // test that request reverts as expected if caller does not hold an operator hat
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_nonWearer);
+        registry.createRequest(
+            _shipHatIds[0],
+            10000e18,
+            2,
+            "",
+            _granteeHatId[0],
+            _granteeTestData[0]
+        );
 
-    // function testHatOfSameType() public {
-    //     hats.mintHat(_operatorHatIds[0], _operatorTeammate);
+        // test that request reverts if an operator is wearing an operator hat for a
+        // different ship
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_shipOperators[1]);
+        registry.createRequest(
+            _shipHatIds[0],
+            10000e18,
+            2,
+            "",
+            _granteeHatId[0],
+            _granteeTestData[0]
+        );
 
-    //     vm.prank(_operatorTeammate);
-    //     registry.createRequest(_shipHatIds[0], 10000e18, 2, "");
+        // test to ensure that facilitators cannot create a request
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_gameFacilitator);
+        registry.createRequest(
+            _shipHatIds[0],
+            10000e18,
+            2,
+            "",
+            _granteeHatId[0],
+            _granteeTestData[0]
+        );
+    }
 
-    //     vm.prank(_shipOperators[0]);
-    //     registry.createRequest(_shipHatIds[0], 10000e18, 2, "");
-    // }
+    function testHatOfSameType() public {
+        vm.prank(_topHatWearer);
+        hats.mintHat(_operatorHatIds[0], _operatorTeammate);
+
+        vm.prank(_operatorTeammate);
+        registry.createRequest(
+            _shipHatIds[0],
+            10000e18,
+            2,
+            "",
+            _granteeHatId[0],
+            _granteeTestData[0]
+        );
+
+        vm.prank(_shipOperators[0]);
+        registry.createRequest(
+            _shipHatIds[0],
+            10000e18,
+            2,
+            "",
+            _granteeHatId[0],
+            _granteeTestData[0]
+        );
+    }
 
     // function testShipDoesNotExist() public {
     //     // test to ensure that a request cannot be created for a ship that does not exist
@@ -284,25 +324,6 @@ contract RegistryTest is Test {
     //     vm.expectRevert(RequestRegistry.SpendingCapExceeded.selector);
     //     vm.prank(_shipOperators[0]);
     //     registry.createRequest(_shipHatIds[0], 100000e18, 2, "");
-    // }
-
-    // function _createDummyRequest(
-    //     address _requester,
-    //     uint256 _tokenAmtRequested,
-    //     uint256 shipId
-    // ) internal {
-    //     vm.prank(_requester);
-    //     registry.createRequest(shipId, _tokenAmtRequested, 2, "");
-
-    //     (, , uint256 amountRequested, , , ) = registry.requests(0);
-
-    //     (, uint256 amountPending, , , ) = registry.ships(shipId);
-
-    //     // Check that amounts recorded in Ship and Request both reflect the _tokenAmtRequested requested
-
-    //     assertEq(amountPending, amountRequested);
-    //     assertEq(amountRequested, _tokenAmtRequested);
-    //     assertEq(amountPending, _tokenAmtRequested);
     // }
 
     // function testApproveRequest() public {
