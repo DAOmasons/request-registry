@@ -167,13 +167,15 @@ contract RequestRegistry {
     }
 
     function _createGrantee(
-        uint256 _granteeHatId,
         address _recipientAddress,
+        uint256 _granteeHatId,
+        uint256 _granteeOperatorId,
         uint32 _metaType,
         string memory _metadata
     ) internal {
         grantees[_granteeHatId] = Grantee({
             recipientAddress: _recipientAddress,
+            granteeOperatorId: _granteeOperatorId,
             metadata: Metadata({metaType: _metaType, data: _metadata})
         });
     }
@@ -184,7 +186,7 @@ contract RequestRegistry {
         uint32 _metaType,
         string memory _metadata,
         uint256 _granteeHatId,
-        bytes _granteeData
+        bytes calldata _granteeData
     ) public {
         Ship storage ship = ships[_shipHatId];
 
@@ -219,12 +221,13 @@ contract RequestRegistry {
         // Chech if a grantee exists already and create one if not
         if (currentGrantee.granteeOperatorId != 0) {
             (
-                _recipientAddress,
-                _granteeOperatorId,
-                _granteeMetaType,
-                _granteeMetadata
+                address _recipientAddress,
+                uint256 _granteeOperatorId,
+                uint32 _granteeMetaType,
+                string memory _granteeMetadata
             ) = abi.decode(_granteeData, (address, uint256, uint32, string));
             _createGrantee(
+                _recipientAddress,
                 _granteeHatId,
                 _granteeOperatorId,
                 _granteeMetaType,
