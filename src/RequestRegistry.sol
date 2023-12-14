@@ -36,6 +36,8 @@ contract RequestRegistry {
         Status status;
         uint256 timestamp;
         Metadata metadata;
+        uint8 shipReviewScore;
+        uint256 granteeHatId;
     }
 
     struct Ship {
@@ -43,6 +45,12 @@ contract RequestRegistry {
         uint256 amountPending;
         uint256 totalDistribution;
         uint256 operatorHatId;
+        Metadata metadata;
+    }
+
+    struct Grantee {
+        address recipientAddress;
+        uint256 granteeOperatorId;
         Metadata metadata;
     }
 
@@ -56,8 +64,10 @@ contract RequestRegistry {
 
     // maps nonce to request
     mapping(uint256 => Request) public requests;
-    // maps grant ship branch ID to ship
+    // maps grant ship HatID to ship
     mapping(uint256 => Ship) public ships;
+    // maps grantee Hat ID to Grantee
+    mapping(uint256 => Grantee) public grantees;
 
     // Events
 
@@ -84,6 +94,7 @@ contract RequestRegistry {
         uint256 operatorId,
         uint256 amountRequested,
         uint256 timestamp,
+        uint256 indexed granteeHatId,
         uint32 metaType,
         string metadata
     );
@@ -155,11 +166,25 @@ contract RequestRegistry {
         emit GrantShipsDeployed(_hatsAddress, _facilitatorHatId);
     }
 
+    function _createGrantee(
+        uint256 _granteeHatId,
+        address _recipientAddress,
+        uint32 _metaType,
+        string memory _metadata
+    ) internal {
+        grantees[_granteeHatId] = Grantee({
+            recipientAddress: _recipientAddress,
+            metadata: Metadata({metaType: _metaType, data: _metadata})
+        });
+    }
+
     function createRequest(
         uint256 _shipHatId,
         uint256 _amountRequested,
         uint32 _metaType,
-        string memory _metadata
+        string memory _metadata,
+        uint256 _granteeHatId,
+        bytes _granteeData
     ) public {
         Ship storage ship = ships[_shipHatId];
 
@@ -183,10 +208,29 @@ contract RequestRegistry {
             amountRequested: _amountRequested,
             status: Status.Pending,
             timestamp: block.timestamp,
-            metadata: Metadata({metaType: _metaType, data: _metadata})
+            metadata: Metadata({metaType: _metaType, data: _metadata}),
+            shipReviewScore: 0,
+            granteeHatId: _granteeHatId
         });
 
         ship.amountPending = _amountRequested + ship.amountPending;
+        Grantee memory currentGrantee = grantees[_granteeHatId];
+
+        // Chech if a grantee exists already and create one if not
+        if (currentGrantee.granteeOperatorId != 0) {
+            (
+                _recipientAddress,
+                _granteeOperatorId,
+                _granteeMetaType,
+                _granteeMetadata
+            ) = abi.decode(_granteeData, (address, uint256, uint32, string));
+            _createGrantee(
+                _granteeHatId,
+                _granteeOperatorId,
+                _granteeMetaType,
+                _granteeMetadata
+            );
+        }
 
         emit RequestCreated(
             nonce,
@@ -194,6 +238,7 @@ contract RequestRegistry {
             ship.operatorHatId,
             _amountRequested,
             block.timestamp,
+            _granteeHatId,
             _metaType,
             _metadata
         );
