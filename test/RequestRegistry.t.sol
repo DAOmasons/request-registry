@@ -312,387 +312,393 @@ contract RegistryTest is Test {
         );
     }
 
-    // function testShipDoesNotExist() public {
-    //     // test to ensure that a request cannot be created for a ship that does not exist
-    //     vm.expectRevert(RequestRegistry.ShipDoesNotExist.selector);
-    //     vm.prank(_shipOperators[0]);
-    //     registry.createRequest(0, 10000e18, 2, "");
-    // }
+    function testShipDoesNotExist() public {
+        // test to ensure that a request cannot be created for a ship that does not exist
+        vm.expectRevert(RequestRegistry.ShipDoesNotExist.selector);
+        vm.prank(_shipOperators[0]);
+        registry.createRequest(
+            0,
+            10000e18,
+            2,
+            "",
+            _granteeHatId[0],
+            _granteeTestData[0]
+        );
+    }
+
+    function testSpendingCapExceeded() public {
+        // test to ensure that a request cannot be created if the spending cap is exceeded
+        vm.expectRevert(RequestRegistry.SpendingCapExceeded.selector);
+        vm.prank(_shipOperators[0]);
+        registry.createRequest(
+            _shipHatIds[0],
+            100000e18,
+            2,
+            "",
+            _granteeHatId[0],
+            _granteeTestData[0]
+        );
+    }
+
+    function testApproveRequest() public {
+        // test to ensure that a facilitator can approve a request
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
+
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
+
+        (, , , RequestRegistry.Status approvedStatus, , , , ) = registry
+            .requests(0);
+        // Check that the status of the request is approved
+        assertEq(
+            uint256(approvedStatus),
+            uint256(RequestRegistry.Status.Approved)
+        );
+    }
+
+    function testRejectRequest() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
+
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+        (, uint256 amountPending, , , ) = registry.ships(shipId);
+
+        assertEq(amountPending, TEN_THOUSAND_TOKENS);
 
-    // function testSpendingCapExceeded() public {
-    //     // test to ensure that a request cannot be created if the spending cap is exceeded
-    //     vm.expectRevert(RequestRegistry.SpendingCapExceeded.selector);
-    //     vm.prank(_shipOperators[0]);
-    //     registry.createRequest(_shipHatIds[0], 100000e18, 2, "");
-    // }
+        vm.prank(_gameFacilitator);
+        registry.rejectRequest(0);
 
-    // function testApproveRequest() public {
-    //     // test to ensure that a facilitator can approve a request
-    //     uint256 shipId = _shipHatIds[0];
-    //     uint256 TEN_THOUSAND_TOKENS = 10000e18;
+        (, uint256 amountPendingAfterRejection, , , ) = registry.ships(shipId);
 
-    //     _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+        // check that the amount pending has been removed
+        assertEq(amountPendingAfterRejection, 0);
 
-    //     vm.prank(_gameFacilitator);
-    //     registry.approveRequest(0);
+        (, , , RequestRegistry.Status rejectedStatus, , , , ) = registry
+            .requests(0);
 
-    //     (, , , RequestRegistry.Status approvedStatus, , ) = registry.requests(
-    //         0
-    //     );
-    //     // Check that the status of the request is approved
-    //     assertEq(
-    //         uint256(approvedStatus),
-    //         uint256(RequestRegistry.Status.Approved)
-    //     );
-    // }
+        assertEq(
+            uint256(rejectedStatus),
+            uint256(RequestRegistry.Status.Rejected)
+        );
 
-    // function testRejectRequest() public {
-    //     uint256 shipId = _shipHatIds[0];
-    //     uint256 TEN_THOUSAND_TOKENS = 10000e18;
+        // TEST WITH APPROVED REQUEST
 
-    //     _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
-    //     (, uint256 amountPending, , , ) = registry.ships(shipId);
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
 
-    //     assertEq(amountPending, TEN_THOUSAND_TOKENS);
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(1);
 
-    //     vm.prank(_gameFacilitator);
-    //     registry.rejectRequest(0);
+        vm.prank(_gameFacilitator);
+        registry.rejectRequest(1);
 
-    //     (, uint256 amountPendingAfterRejection, , , ) = registry.ships(shipId);
+        (, uint256 amountPendingAfterRejection2, , , ) = registry.ships(shipId);
 
-    //     // check that the amount pending has been removed
-    //     assertEq(amountPendingAfterRejection, 0);
+        // check that the amount pending has been removed
+        assertEq(amountPendingAfterRejection2, 0);
 
-    //     (, , , RequestRegistry.Status rejectedStatus, , ) = registry.requests(
-    //         0
-    //     );
+        (, , , RequestRegistry.Status rejectedStatus2, , , , ) = registry
+            .requests(0);
 
-    //     assertEq(
-    //         uint256(rejectedStatus),
-    //         uint256(RequestRegistry.Status.Rejected)
-    //     );
+        assertEq(
+            uint256(rejectedStatus2),
+            uint256(RequestRegistry.Status.Rejected)
+        );
+    }
 
-    //     // TEST WITH APPROVED REQUEST
+    function testDistributeRequest() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
 
-    //     _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
 
-    //     vm.prank(_gameFacilitator);
-    //     registry.approveRequest(1);
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
 
-    //     vm.prank(_gameFacilitator);
-    //     registry.rejectRequest(1);
+        (, , , RequestRegistry.Status approvedStatus, , , , ) = registry
+            .requests(0);
 
-    //     (, uint256 amountPendingAfterRejection2, , , ) = registry.ships(shipId);
+        assertEq(
+            uint256(approvedStatus),
+            uint256(RequestRegistry.Status.Approved)
+        );
 
-    //     // check that the amount pending has been removed
-    //     assertEq(amountPendingAfterRejection2, 0);
+        (
+            uint256 amountDistribtutedBeforeDistro,
+            uint256 amountPendingBeforeDistro,
+            ,
+            ,
 
-    //     (, , , RequestRegistry.Status rejectedStatus2, , ) = registry.requests(
-    //         0
-    //     );
+        ) = registry.ships(shipId);
 
-    //     assertEq(
-    //         uint256(rejectedStatus2),
-    //         uint256(RequestRegistry.Status.Rejected)
-    //     );
-    // }
+        assertEq(amountDistribtutedBeforeDistro, 0);
+        assertEq(amountPendingBeforeDistro, TEN_THOUSAND_TOKENS);
 
-    // function testDistributeRequest() public {
-    //     uint256 shipId = _shipHatIds[0];
-    //     uint256 TEN_THOUSAND_TOKENS = 10000e18;
+        vm.prank(_gameFacilitator);
+        registry.distributeRequest(0);
 
-    //     _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+        (
+            uint256 amountDistribtutedAfterDistro,
+            uint256 amountPendingAfterDistro,
+            ,
+            ,
 
-    //     vm.prank(_gameFacilitator);
-    //     registry.approveRequest(0);
+        ) = registry.ships(shipId);
 
-    //     (, , , RequestRegistry.Status approvedStatus, , ) = registry.requests(
-    //         0
-    //     );
+        assertEq(amountDistribtutedAfterDistro, TEN_THOUSAND_TOKENS);
+        assertEq(amountPendingAfterDistro, 0);
 
-    //     assertEq(
-    //         uint256(approvedStatus),
-    //         uint256(RequestRegistry.Status.Approved)
-    //     );
+        (, , , RequestRegistry.Status distributedStatus, , , , ) = registry
+            .requests(0);
 
-    //     (
-    //         uint256 amountDistribtutedBeforeDistro,
-    //         uint256 amountPendingBeforeDistro,
-    //         ,
-    //         ,
+        assertEq(
+            uint256(distributedStatus),
+            uint256(RequestRegistry.Status.Distributed)
+        );
+    }
 
-    //     ) = registry.ships(shipId);
+    function testCancelRequest() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
 
-    //     assertEq(amountDistribtutedBeforeDistro, 0);
-    //     assertEq(amountPendingBeforeDistro, TEN_THOUSAND_TOKENS);
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
 
-    //     vm.prank(_gameFacilitator);
-    //     registry.distributeRequest(0);
+        (, uint256 amountPending, , , ) = registry.ships(shipId);
 
-    //     (
-    //         uint256 amountDistribtutedAfterDistro,
-    //         uint256 amountPendingAfterDistro,
-    //         ,
-    //         ,
+        assertEq(amountPending, TEN_THOUSAND_TOKENS);
 
-    //     ) = registry.ships(shipId);
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
 
-    //     assertEq(amountDistribtutedAfterDistro, TEN_THOUSAND_TOKENS);
-    //     assertEq(amountPendingAfterDistro, 0);
+        (, uint256 amountPendingAfterCancel, , , ) = registry.ships(shipId);
 
-    //     (, , , RequestRegistry.Status distributedStatus, , ) = registry
-    //         .requests(0);
+        assertEq(amountPendingAfterCancel, 0);
 
-    //     assertEq(
-    //         uint256(distributedStatus),
-    //         uint256(RequestRegistry.Status.Distributed)
-    //     );
-    // }
+        (, , , RequestRegistry.Status cancelledStatus, , , , ) = registry
+            .requests(0);
 
-    // function testCancelRequest() public {
-    //     uint256 shipId = _shipHatIds[0];
-    //     uint256 TEN_THOUSAND_TOKENS = 10000e18;
+        assertEq(
+            uint256(cancelledStatus),
+            uint256(RequestRegistry.Status.Cancelled)
+        );
 
-    //     _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+        // TEST WITH APPROVED REQUEST
 
-    //     (, uint256 amountPending, , , ) = registry.ships(shipId);
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
 
-    //     assertEq(amountPending, TEN_THOUSAND_TOKENS);
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(1);
 
-    //     vm.prank(_shipOperators[0]);
-    //     registry.cancelRequest(0);
+        (, , , RequestRegistry.Status approvedStatus, , , , ) = registry
+            .requests(1);
 
-    //     (, uint256 amountPendingAfterCancel, , , ) = registry.ships(shipId);
+        assertEq(
+            uint256(approvedStatus),
+            uint256(RequestRegistry.Status.Approved)
+        );
 
-    //     assertEq(amountPendingAfterCancel, 0);
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(1);
 
-    //     (, , , RequestRegistry.Status cancelledStatus, , ) = registry.requests(
-    //         0
-    //     );
+        (, uint256 amountPendingAfterCancel2, , , ) = registry.ships(shipId);
 
-    //     assertEq(
-    //         uint256(cancelledStatus),
-    //         uint256(RequestRegistry.Status.Cancelled)
-    //     );
+        assertEq(amountPendingAfterCancel2, 0);
 
-    //     // TEST WITH APPROVED REQUEST
+        (, , , RequestRegistry.Status cancelledStatus2, , , , ) = registry
+            .requests(1);
 
-    //     _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+        assertEq(
+            uint256(cancelledStatus2),
+            uint256(RequestRegistry.Status.Cancelled)
+        );
+    }
 
-    //     vm.prank(_gameFacilitator);
-    //     registry.approveRequest(1);
+    function testNonFacilitatorApproveRequest() public {
+        // test to ensure non-hatwearer cannot approve a request
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_nonWearer);
+        registry.approveRequest(0);
 
-    //     (, , , RequestRegistry.Status approvedStatus, , ) = registry.requests(
-    //         1
-    //     );
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_shipOperators[0]);
+        registry.approveRequest(0);
+    }
 
-    //     assertEq(
-    //         uint256(approvedStatus),
-    //         uint256(RequestRegistry.Status.Approved)
-    //     );
+    function testNonFacilitatorRejectRequest() public {
+        // test to ensure that only facilitators can reject a request
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_nonWearer);
+        registry.rejectRequest(0);
 
-    //     vm.prank(_shipOperators[0]);
-    //     registry.cancelRequest(1);
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_shipOperators[0]);
+        registry.rejectRequest(0);
+    }
 
-    //     (, uint256 amountPendingAfterCancel2, , , ) = registry.ships(shipId);
+    function testNonFacilitatorDistributeRequest() public {
+        // test to ensure that only facilitators can distribute a request
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_nonWearer);
+        registry.distributeRequest(0);
 
-    //     assertEq(amountPendingAfterCancel2, 0);
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_shipOperators[0]);
+        registry.distributeRequest(0);
+    }
 
-    //     (, , , RequestRegistry.Status cancelledStatus2, , ) = registry.requests(
-    //         1
-    //     );
+    function testNonShipOperatorCancelRequest() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
 
-    //     assertEq(
-    //         uint256(cancelledStatus2),
-    //         uint256(RequestRegistry.Status.Cancelled)
-    //     );
-    // }
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
 
-    // function testNonFacilitatorApproveRequest() public {
-    //     // test to ensure non-hatwearer cannot approve a request
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_nonWearer);
-    //     registry.approveRequest(0);
+        // non-weaer cannot cancel request
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_nonWearer);
+        registry.cancelRequest(0);
 
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_shipOperators[0]);
-    //     registry.approveRequest(0);
-    // }
+        // facilitator cannot cancel request
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_gameFacilitator);
+        registry.cancelRequest(0);
 
-    // function testNonFacilitatorRejectRequest() public {
-    //     // test to ensure that only facilitators can reject a request
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_nonWearer);
-    //     registry.rejectRequest(0);
+        // operator cannot cancel request for a different ship
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_shipOperators[1]);
+        registry.cancelRequest(0);
 
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_shipOperators[0]);
-    //     registry.rejectRequest(0);
-    // }
+        // operator can cancel request
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
 
-    // function testNonFacilitatorDistributeRequest() public {
-    //     // test to ensure that only facilitators can distribute a request
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_nonWearer);
-    //     registry.distributeRequest(0);
+        (, , , RequestRegistry.Status cancelledStatus, , , , ) = registry
+            .requests(0);
 
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_shipOperators[0]);
-    //     registry.distributeRequest(0);
-    // }
+        assertEq(
+            uint256(cancelledStatus),
+            uint256(RequestRegistry.Status.Cancelled)
+        );
+    }
 
-    // function testNonShipOperatorCancelRequest() public {
-    //     uint256 shipId = _shipHatIds[0];
-    //     uint256 TEN_THOUSAND_TOKENS = 10000e18;
+    function testRequestDoesNotExist() public {
+        // Approve
+        vm.expectRevert(RequestRegistry.RequestDoesNotExist.selector);
+        vm.prank(_gameFacilitator);
 
-    //     _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+        registry.approveRequest(0);
 
-    //     // non-weaer cannot cancel request
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_nonWearer);
-    //     registry.cancelRequest(0);
+        // Reject
+        vm.expectRevert(RequestRegistry.RequestDoesNotExist.selector);
+        vm.prank(_gameFacilitator);
 
-    //     // facilitator cannot cancel request
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_gameFacilitator);
-    //     registry.cancelRequest(0);
+        registry.rejectRequest(0);
 
-    //     // operator cannot cancel request for a different ship
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_shipOperators[1]);
-    //     registry.cancelRequest(0);
+        // Distribute
+        vm.expectRevert(RequestRegistry.RequestDoesNotExist.selector);
+        vm.prank(_gameFacilitator);
+        registry.distributeRequest(0);
 
-    //     // operator can cancel request
-    //     vm.prank(_shipOperators[0]);
-    //     registry.cancelRequest(0);
+        // Cancel
+        vm.expectRevert(RequestRegistry.RequestDoesNotExist.selector);
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
+    }
 
-    //     (, , , RequestRegistry.Status cancelledStatus, , ) = registry.requests(
-    //         0
-    //     );
+    function testRejectIncorrectStatus() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
 
-    //     assertEq(
-    //         uint256(cancelledStatus),
-    //         uint256(RequestRegistry.Status.Cancelled)
-    //     );
-    // }
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
 
-    // function testRequestDoesNotExist() public {
-    //     // Approve
-    //     vm.expectRevert(RequestRegistry.RequestDoesNotExist.selector);
-    //     vm.prank(_gameFacilitator);
+        vm.prank(_gameFacilitator);
+        registry.rejectRequest(0);
 
-    //     registry.approveRequest(0);
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.rejectRequest(0);
 
-    //     // Reject
-    //     vm.expectRevert(RequestRegistry.RequestDoesNotExist.selector);
-    //     vm.prank(_gameFacilitator);
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
 
-    //     registry.rejectRequest(0);
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.distributeRequest(0);
 
-    //     // Distribute
-    //     vm.expectRevert(RequestRegistry.RequestDoesNotExist.selector);
-    //     vm.prank(_gameFacilitator);
-    //     registry.distributeRequest(0);
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
+    }
 
-    //     // Cancel
-    //     vm.expectRevert(RequestRegistry.RequestDoesNotExist.selector);
-    //     vm.prank(_shipOperators[0]);
-    //     registry.cancelRequest(0);
-    // }
+    function testApproveIncorrectStatus() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
 
-    // function testRejectIncorrectStatus() public {
-    //     uint256 shipId = _shipHatIds[0];
-    //     uint256 TEN_THOUSAND_TOKENS = 10000e18;
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
 
-    //     _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
 
-    //     vm.prank(_gameFacilitator);
-    //     registry.rejectRequest(0);
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
 
-    //     vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
-    //     vm.prank(_gameFacilitator);
-    //     registry.rejectRequest(0);
+        // Approved requests can be rejected, distributed, or cancelled
+    }
 
-    //     vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
-    //     vm.prank(_gameFacilitator);
-    //     registry.approveRequest(0);
+    function testDistributeIncorrectStatus() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
 
-    //     vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
-    //     vm.prank(_gameFacilitator);
-    //     registry.distributeRequest(0);
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
 
-    //     vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
-    //     vm.prank(_shipOperators[0]);
-    //     registry.cancelRequest(0);
-    // }
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
 
-    // function testApproveIncorrectStatus() public {
-    //     uint256 shipId = _shipHatIds[0];
-    //     uint256 TEN_THOUSAND_TOKENS = 10000e18;
+        vm.prank(_gameFacilitator);
+        registry.distributeRequest(0);
 
-    //     _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.distributeRequest(0);
 
-    //     vm.prank(_gameFacilitator);
-    //     registry.approveRequest(0);
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
 
-    //     vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
-    //     vm.prank(_gameFacilitator);
-    //     registry.approveRequest(0);
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.rejectRequest(0);
 
-    //     // Approved requests can be rejected, distributed, or cancelled
-    // }
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
+    }
 
-    // function testDistributeIncorrectStatus() public {
-    //     uint256 shipId = _shipHatIds[0];
-    //     uint256 TEN_THOUSAND_TOKENS = 10000e18;
+    function testCancelledIncorrectStatus() public {
+        uint256 shipId = _shipHatIds[0];
+        uint256 TEN_THOUSAND_TOKENS = 10000e18;
+        _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
 
-    //     _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
 
-    //     vm.prank(_gameFacilitator);
-    //     registry.approveRequest(0);
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_shipOperators[0]);
+        registry.cancelRequest(0);
 
-    //     vm.prank(_gameFacilitator);
-    //     registry.distributeRequest(0);
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.approveRequest(0);
 
-    //     vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
-    //     vm.prank(_gameFacilitator);
-    //     registry.distributeRequest(0);
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.rejectRequest(0);
 
-    //     vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
-    //     vm.prank(_gameFacilitator);
-    //     registry.approveRequest(0);
-
-    //     vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
-    //     vm.prank(_gameFacilitator);
-    //     registry.rejectRequest(0);
-
-    //     vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
-    //     vm.prank(_shipOperators[0]);
-    //     registry.cancelRequest(0);
-    // }
-
-    // function testCancelledIncorrectStatus() public {
-    //     uint256 shipId = _shipHatIds[0];
-    //     uint256 TEN_THOUSAND_TOKENS = 10000e18;
-    //     _createDummyRequest(_shipOperators[0], TEN_THOUSAND_TOKENS, shipId);
-
-    //     vm.prank(_shipOperators[0]);
-    //     registry.cancelRequest(0);
-
-    //     vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
-    //     vm.prank(_shipOperators[0]);
-    //     registry.cancelRequest(0);
-
-    //     vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
-    //     vm.prank(_gameFacilitator);
-    //     registry.approveRequest(0);
-
-    //     vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
-    //     vm.prank(_gameFacilitator);
-    //     registry.rejectRequest(0);
-
-    //     vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
-    //     vm.prank(_gameFacilitator);
-    //     registry.distributeRequest(0);
-    // }
+        vm.expectRevert(RequestRegistry.IncorrectRequestStatus.selector);
+        vm.prank(_gameFacilitator);
+        registry.distributeRequest(0);
+    }
 }
