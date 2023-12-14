@@ -22,17 +22,20 @@ contract RegistryTest is Test {
     address[3] internal _shipOperators;
     uint256[3] internal _operatorHatIds;
     uint256[3] internal _shipHatIds;
+
     uint256[3] internal _granteeHatId;
     address[3] internal _granteeAddresses;
     address[3] internal _granteeOperators;
     uint256[3] internal _granteeOperatorId;
+    bytes[3] internal _granteePackedTestData;
 
     uint256 internal _topHatId;
     uint256 internal _facilitatorHatId;
 
     function setUp() public {
         _setupHats();
-        // _setupGrantShips();
+        _setupGrantShips();
+        _setupSampleGrantees();
     }
 
     function _setupHats() internal {
@@ -90,6 +93,51 @@ contract RegistryTest is Test {
             vm.prank(_topHatWearer);
             hats.mintHat(_operatorHatIds[i], _shipOperators[i]);
 
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    function _setupGrantShips() internal {
+        bytes[3] memory shipConfigs;
+
+        for (uint8 i = 0; i < 3; ) {
+            shipConfigs[i] = abi.encode(
+                30000e18,
+                _operatorHatIds[i],
+                _shipHatIds[i],
+                2,
+                string.concat("This is metadata for Ship ", vm.toString(i))
+            );
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        // Test to ensure that only facilitators can create the contract
+        vm.expectRevert(RequestRegistry.NotAuthorized.selector);
+        vm.prank(_nonWearer);
+        registry = new RequestRegistry(
+            address(hats),
+            _facilitatorHatId,
+            shipConfigs
+        );
+
+        // deploy as expected
+
+        vm.prank(_gameFacilitator);
+
+        registry = new RequestRegistry(
+            address(hats),
+            _facilitatorHatId,
+            shipConfigs
+        );
+    }
+
+    function _setupSampleGrantees() internal {
+        for (uint8 i = 0; i < 3; ) {
             vm.prank(_topHatWearer);
 
             _granteeHatId[i] = hats.createHat(
@@ -134,48 +182,17 @@ contract RegistryTest is Test {
                 ""
             );
 
-            unchecked {
-                ++i;
-            }
+            _granteePackedTestData[i] = abi.encode(
+                _granteeAddresses[i],
+                _granteeOperatorId[i],
+                3,
+                string.concat(
+                    "This is metadata for Grantee ",
+                    vm.toString(i + 1)
+                )
+            );
         }
     }
-
-    // function _setupGrantShips() internal {
-    //     bytes[3] memory shipConfigs;
-
-    //     for (uint8 i = 0; i < 3; ) {
-    //         shipConfigs[i] = abi.encode(
-    //             30000e18,
-    //             _operatorHatIds[i],
-    //             _shipHatIds[i],
-    //             2,
-    //             string.concat("This is metadata for Ship ", vm.toString(i))
-    //         );
-
-    //         unchecked {
-    //             ++i;
-    //         }
-    //     }
-
-    //     // Test to ensure that only facilitators can create the contract
-    //     vm.expectRevert(RequestRegistry.NotAuthorized.selector);
-    //     vm.prank(_nonWearer);
-    //     registry = new RequestRegistry(
-    //         address(hats),
-    //         _facilitatorHatId,
-    //         shipConfigs
-    //     );
-
-    //     // deploy as expected
-
-    //     vm.prank(_gameFacilitator);
-
-    //     registry = new RequestRegistry(
-    //         address(hats),
-    //         _facilitatorHatId,
-    //         shipConfigs
-    //     );
-    // }
 
     // function testNonFacilitatorCreate() public {
     //     bytes[3] memory shipConfigs;
