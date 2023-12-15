@@ -35,7 +35,9 @@ contract RequestRegistry {
         uint256 operatorId;
         uint256 amountRequested;
         Status status;
+        // Todo - probably don't neet a timestamp
         uint256 timestamp;
+        // Todo -  If we have grantees now, do we still need to store the metadata?
         Metadata metadata;
         uint8 shipReviewScore;
         uint256 granteeHatId;
@@ -64,6 +66,9 @@ contract RequestRegistry {
     uint256 registrarHatId;
 
     uint256 private nonce;
+
+    //Todo - Figure out if mapping is still the best pattern for this
+    // arrays might be better
 
     // maps nonce to request
     mapping(uint256 => Request) public requests;
@@ -192,7 +197,7 @@ contract RequestRegistry {
 
         uint256 granteeHatId = hats.createHat(
             registrarHatId,
-            // Todo - Figure out the metadata standarn for the hats interface and replicate
+            // Todo - Figure out the metadata standard for the hats interface and replicate
             "Grantee Hat",
             1,
             address(0),
@@ -205,7 +210,7 @@ contract RequestRegistry {
 
         uint256 granteeOperatorId = hats.createHat(
             granteeHatId,
-            // Todo - Figure out the metadata standarn for the hats interface and replicate
+            // Todo - Figure out the metadata standard for the hats interface and replicate
             "Grantee operator role",
             uint32(_operators.length),
             address(0),
@@ -297,27 +302,6 @@ contract RequestRegistry {
 
         ship.amountPending = _amountRequested + ship.amountPending;
         Grantee memory currentGrantee = grantees[_granteeHatId];
-
-        // Chech if a grantee exists already and create one if not
-        // if (currentGrantee.granteeOperatorId == 0) {
-        //     (
-        //         address _recipientAddress,
-        //         uint256 _granteeOperatorId,
-        //         uint32 _granteeMetaType,
-        //         string memory _granteeMetadata,
-        //         string memory _imgUrl
-        //     ) = abi.decode(
-        //             _granteeData,
-        //             (address, uint256, uint32, string, string)
-        //         );
-        //     _createGrantee(
-        //         _recipientAddress,
-        //         _granteeOperatorId,
-        //         _granteeMetaType,
-        //         _granteeMetadata,
-        //         _imgUrl
-        //     );
-        // }
 
         emit RequestCreated(
             nonce,
