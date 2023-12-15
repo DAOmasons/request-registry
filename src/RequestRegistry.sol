@@ -10,6 +10,7 @@ contract RequestRegistry {
     // STATUS
 
     enum Status {
+        // Todo - add a default or 'none' status
         Pending,
         Rejected,
         Approved,
@@ -51,6 +52,7 @@ contract RequestRegistry {
     struct Grantee {
         address recipientAddress;
         uint256 granteeOperatorId;
+        bool verified;
         Metadata metadata;
     }
 
@@ -59,6 +61,7 @@ contract RequestRegistry {
     IHats hats;
 
     uint256 facilitatorHatId;
+    uint256 registrarHatId;
 
     uint256 private nonce;
 
@@ -74,6 +77,7 @@ contract RequestRegistry {
     // Errors
 
     error NotAuthorized();
+    error RegistrarHatNotConfigured();
     error ShipDoesNotExist();
     error RequestDoesNotExist();
     error SpendingCapExceeded();
@@ -99,8 +103,16 @@ contract RequestRegistry {
         string metadata
     );
 
+    event GranteeAdded(
+        uint256 indexed granteeHatId,
+        uint256 indexed granteeOperatorId,
+        address indexed recipientAddress,
+        uint32 metaType,
+        string metadata
+    );
+
     event ShipDeployed(
-        uint256 shipId,
+        uint256 indexed shipId,
         uint256 operatorHatId,
         uint256 totalDistribution,
         uint32 metatype,
@@ -121,10 +133,12 @@ contract RequestRegistry {
     constructor(
         address _hatsAddress,
         uint256 _facilitatorHatId,
+        uint256 _registrarHatId,
         bytes[3] memory _shipsData
     ) {
         hats = IHats(_hatsAddress);
         facilitatorHatId = _facilitatorHatId;
+        registrarHatId = _registrarHatId;
 
         if (!hats.isWearerOfHat(msg.sender, facilitatorHatId)) {
             revert NotAuthorized();
@@ -166,19 +180,84 @@ contract RequestRegistry {
         emit GrantShipsDeployed(_hatsAddress, _facilitatorHatId);
     }
 
-    function _createGrantee(
+    function registerGrantee(
         address _recipientAddress,
-        uint256 _granteeHatId,
-        uint256 _granteeOperatorId,
+        address[] calldata _operators,
         uint32 _metaType,
-        string memory _metadata
-    ) internal {
-        grantees[_granteeHatId] = Grantee({
+        string calldata _metadata
+    ) public {
+        if (!hats.isWearerOfHat(address(this), registrarHatId)) {
+            revert RegistrarHatNotConfigured();
+        }
+
+        uint256 granteeHatId = hats.createHat(
+            registrarHatId,
+            // Todo - Figure out the metadata standarn for the hats interface and replicate
+            "Grantee Hat",
+            1,
+            address(0),
+            address(0),
+            true,
+            ""
+        );
+
+        hats.mintHat(granteeHatId, _recipientAddress);
+
+        uint256 granteeOperatorId = hats.createHat(
+            granteeHatId,
+            // Todo - Figure out the metadata standarn for the hats interface and replicate
+            "Grantee operator role",
+            uint32(_operators.length),
+            address(0),
+            address(0),
+            true,
+            ""
+        );
+        // Todo - Figure out gas here
+        // In order to use batch minting, we need to create an array of the
+        // same size as the number of operators. Is it cheaper to loop twice and batch
+        // mint or loop once and mint individually?
+        for (uint256 i = 0; i < _operators.length; i++) {
+            hats.mintHat(granteeOperatorId, _operators[i]);
+        }
+
+        grantees[granteeHatId] = Grantee({
             recipientAddress: _recipientAddress,
-            granteeOperatorId: _granteeOperatorId,
+            granteeOperatorId: granteeOperatorId,
+            verified: false,
             metadata: Metadata({metaType: _metaType, data: _metadata})
         });
+
+        emit GranteeAdded(
+            granteeHatId,
+            granteeOperatorId,
+            _recipientAddress,
+            _metaType,
+            _metadata
+        );
     }
+
+    // function _createGrantee(
+    //     address _recipientAddress,
+    //     uint256 _granteeOperatorId,
+    //     uint32 _metaType,
+    //     string memory _metadata,
+    //     string memory _imgUrl
+    // ) internal {
+    //     grantees[granteeHatId] = Grantee({
+    //         recipientAddress: _recipientAddress,
+    //         granteeOperatorId: _granteeOperatorId,
+    //         metadata: Metadata({metaType: _metaType, data: _metadata})
+    //     });
+
+    //     emit GranteeAdded(
+    //         granteeHatId,
+    //         _granteeOperatorId,
+    //         _recipientAddress,
+    //         _metaType,
+    //         _metadata
+    //     );
+    // }
 
     function createRequest(
         uint256 _shipHatId,
@@ -186,6 +265,7 @@ contract RequestRegistry {
         uint32 _metaType,
         string memory _metadata,
         uint256 _granteeHatId,
+        // TODO: delete this argument if separate calls works better
         bytes calldata _granteeData
     ) public {
         Ship storage ship = ships[_shipHatId];
@@ -219,21 +299,25 @@ contract RequestRegistry {
         Grantee memory currentGrantee = grantees[_granteeHatId];
 
         // Chech if a grantee exists already and create one if not
-        if (currentGrantee.granteeOperatorId != 0) {
-            (
-                address _recipientAddress,
-                uint256 _granteeOperatorId,
-                uint32 _granteeMetaType,
-                string memory _granteeMetadata
-            ) = abi.decode(_granteeData, (address, uint256, uint32, string));
-            _createGrantee(
-                _recipientAddress,
-                _granteeHatId,
-                _granteeOperatorId,
-                _granteeMetaType,
-                _granteeMetadata
-            );
-        }
+        // if (currentGrantee.granteeOperatorId == 0) {
+        //     (
+        //         address _recipientAddress,
+        //         uint256 _granteeOperatorId,
+        //         uint32 _granteeMetaType,
+        //         string memory _granteeMetadata,
+        //         string memory _imgUrl
+        //     ) = abi.decode(
+        //             _granteeData,
+        //             (address, uint256, uint32, string, string)
+        //         );
+        //     _createGrantee(
+        //         _recipientAddress,
+        //         _granteeOperatorId,
+        //         _granteeMetaType,
+        //         _granteeMetadata,
+        //         _imgUrl
+        //     );
+        // }
 
         emit RequestCreated(
             nonce,

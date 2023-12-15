@@ -12,6 +12,7 @@ contract RegistryTest is Test {
     Hats public hats;
 
     address internal _gameFacilitator = address(2);
+
     address internal _nonWearer = address(3);
     address internal _topHatWearer = address(4);
     address internal _operatorTeammate = address(5);
@@ -33,6 +34,7 @@ contract RegistryTest is Test {
 
     uint256 internal _topHatId;
     uint256 internal _facilitatorHatId;
+    uint256 internal _registrarHatId;
 
     function setUp() public {
         _setupHats();
@@ -53,7 +55,7 @@ contract RegistryTest is Test {
 
         _facilitatorHatId = hats.createHat(
             _topHatId,
-            "Child Hat 1",
+            "Facilitator Hat",
             2,
             _eligibility,
             _toggle,
@@ -124,6 +126,7 @@ contract RegistryTest is Test {
         registry = new RequestRegistry(
             address(hats),
             _facilitatorHatId,
+            _registrarHatId,
             _shipTestData
         );
 
@@ -134,6 +137,7 @@ contract RegistryTest is Test {
         registry = new RequestRegistry(
             address(hats),
             _facilitatorHatId,
+            _registrarHatId,
             _shipTestData
         );
     }
@@ -220,6 +224,20 @@ contract RegistryTest is Test {
         assertEq(Metadata.data, '{"json": true}');
         assertEq(shipReviewScore, 0);
         assertEq(granteeHatId, _granteeHatId[0]);
+
+        // test to ensure that a request for a grantee that has not been
+        // registered will create a grantee and store the data as expected
+
+        // (
+        //     address recipientAddress,
+        //     uint256 granteeOperatorId,
+        //     RequestRegistry.Metadata memory metadata
+        // ) = registry.grantees(_granteeHatId[0]);
+
+        // assertEq(recipientAddress, _granteeAddresses[0]);
+        // assertEq(granteeOperatorId, _granteeOperatorId[0]);
+        // assertEq(metadata.metaType, 3);
+        // assertEq(metadata.data, "This is metadata for Grantee 1");
     }
 
     function _createDummyRequest(
