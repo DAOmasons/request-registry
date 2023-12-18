@@ -39,7 +39,7 @@ contract RequestRegistry {
         uint256 timestamp;
         // Todo -  If we have grantees now, do we still need to store the metadata?
         Metadata metadata;
-        uint8 shipReviewScore;
+        uint16 shipReviewScore;
         uint256 granteeHatId;
     }
 
@@ -240,6 +240,32 @@ contract RequestRegistry {
             _metaType,
             _metadata
         );
+    }
+
+    // Todo -  discuss if we need an updater function for grantees
+
+    // Todo -  discuss if we are ok with only the facilitator verifying grantees
+    // Also, should we require a grantee to be verified before the ship requests funding?
+    // I'm leaning no.
+    function verifyGrantee(uint256 _granteeHatId) public onlyFacilitator {
+        Grantee storage grantee = grantees[_granteeHatId];
+        if (grantee.recipientAddress == address(0)) revert ShipDoesNotExist();
+
+        grantee.verified = true;
+    }
+
+    function rateGrantShip(uint256 _requestId, uint16 _score) public {
+        Request storage request = requests[_requestId];
+        if (request.operatorId == 0) revert RequestDoesNotExist();
+        if (request.status != Status.Distributed)
+            revert IncorrectRequestStatus();
+        Grantee memory grantee = grantees[request.granteeHatId];
+
+        if (!hats.isWearerOfHat(msg.sender, grantee.granteeOperatorId))
+            revert NotAuthorized();
+        if (_score > 10000) revert("Score must be between 0 and 10000");
+
+        request.shipReviewScore = _score;
     }
 
     // function _createGrantee(

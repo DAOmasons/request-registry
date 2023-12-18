@@ -211,7 +211,7 @@ contract RegistryTest is Test {
             RequestRegistry.Status status,
             uint256 timestamp,
             RequestRegistry.Metadata memory Metadata,
-            uint8 shipReviewScore,
+            uint16 shipReviewScore,
             uint256 granteeHatId
         ) = registry.requests(0);
 
